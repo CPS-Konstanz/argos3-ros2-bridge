@@ -58,8 +58,9 @@ class ArgosRosBridge : public CCI_Controller{
 		// Light list publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::LightList>::SharedPtr lightListPublisher_;
 		// Proximity sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::ProximityList>::SharedPtr promixityPublisher_;
-		rclcpp::Publisher<argos3_ros2_bridge::msg::BlobList>::SharedPtr blobPublisher_;
+		rclcpp::Publisher<argos3_ros2_bridge::msg::ProximityList>::SharedPtr promixityListPublisher_;
+		// Omnidirectional camera sensor publisher
+		rclcpp::Publisher<argos3_ros2_bridge::msg::BlobList>::SharedPtr blobListPublisher_;
 		// Position sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::Position>::SharedPtr positionPublisher_;
 		// Position sensor publisher

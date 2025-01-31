@@ -51,14 +51,14 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	 * Create the topics to publish
 	 *******************************/
 	stringstream lightTopic, blobTopic, proxTopic, positionTopic, rabTopic;
-	lightTopic 		<< "/" << GetId() << "/light";
-	blobTopic 		<< "/" << GetId() << "/blob";
-	proxTopic 		<< "/" << GetId() << "/proximity";
+	lightTopic 		<< "/" << GetId() << "/lightList";
+	blobTopic 		<< "/" << GetId() << "/blobList";
+	proxTopic 		<< "/" << GetId() << "/proximityList";
 	positionTopic 	<< "/" << GetId() << "/position";
 	rabTopic 		<< "/" << GetId() << "/rab";
 	lightListPublisher_ = ArgosRosBridge::nodeHandle -> create_publisher<LightList>(lightTopic.str(), 1);
-	blobPublisher_ 		= ArgosRosBridge::nodeHandle -> create_publisher<BlobList>(blobTopic.str(), 1);
-	promixityPublisher_ = ArgosRosBridge::nodeHandle -> create_publisher<ProximityList>(proxTopic.str(), 1);
+	blobListPublisher_ 		= ArgosRosBridge::nodeHandle -> create_publisher<BlobList>(blobTopic.str(), 1);
+	promixityListPublisher_ = ArgosRosBridge::nodeHandle -> create_publisher<ProximityList>(proxTopic.str(), 1);
 	positionPublisher_ 	= ArgosRosBridge::nodeHandle -> create_publisher<Position>(positionTopic.str(), 1);
 	rabPublisher_ 		= ArgosRosBridge::nodeHandle -> create_publisher<PacketList>(rabTopic.str(), 1);
 
@@ -153,7 +153,7 @@ void ArgosRosBridge::ControlStep() {
 
 	}
 
-	promixityPublisher_ -> publish(proxList);
+	promixityListPublisher_ -> publish(proxList);
 
 	/**************************************************************
 	 * Get readings from Colored Blob Omnidirectional Camera Sensor
@@ -177,11 +177,11 @@ void ArgosRosBridge::ControlStep() {
 
 	}
 
-	// Sort the puck list by angle.  This is useful for the purposes of extracting meaning from
-	// the local puck configuration (e.g. fitting a lines to the detected pucks).
+	// Sort the blob list by angle.  This is useful for the purposes of extracting meaning from
+	// the local blob configuration (e.g. fitting a lines to the detected blobs).
 	sort(blobList.blobs.begin(), blobList.blobs.end(), blobComparator);
 
-	blobPublisher_ -> publish(blobList);
+	blobListPublisher_ -> publish(blobList);
 
 	/*********************************************************************
 	 * Get readings from Positioning sensor
