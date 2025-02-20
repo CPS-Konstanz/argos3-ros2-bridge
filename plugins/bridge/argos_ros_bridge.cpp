@@ -128,6 +128,10 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	/* Enable camera filtering */
 	   m_pcCamera->Enable();
 	}
+	if (HasActuator("leds")){
+		/* Enable */
+		m_pcLEDs->SetSingleColor(12, CColor::RED);
+	}
 	/*
 	* Parse the configuration file
 	*
