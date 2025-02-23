@@ -14,21 +14,8 @@ using namespace argos3_ros2_bridge::msg;
 using namespace geometry_msgs::msg;
 using std::placeholders::_1;
 
-/**
- * Initialize the node before creating the publishers
- * and subscribers. Otherwise we get a guard-error during
- * compilation if we initialize the node after.
- */
-std::shared_ptr<rclcpp::Node> initNode() {
-  int argc = 1;
-  char *argv = (char *) "";
-  if (rclcpp::get_contexts().empty()){rclcpp::init(argc, &argv);}
-  
-  return std::make_shared<rclcpp::Node>("argos_ros_node");
-
-}
-
-std::shared_ptr<rclcpp::Node> ArgosRosBridge::nodeHandle = initNode();
+bool ArgosRosBridge::ros_initialized = false;
+rclcpp::Context::SharedPtr ArgosRosBridge::global_context_ = nullptr;
 
 ArgosRosBridge::ArgosRosBridge() :
 		m_pcWheels(NULL),
@@ -42,11 +29,72 @@ ArgosRosBridge::ArgosRosBridge() :
 		stopWithoutSubscriberCount(10),
 		stepsSinceCallback(0),
 		leftSpeed(0),
-		rightSpeed(0){}
+		rightSpeed(0),
+		domain_id_(0){}
 
 ArgosRosBridge::~ArgosRosBridge(){}
 
 void ArgosRosBridge::Init(TConfigurationNode& t_node){
+
+	// Get robot ID from ARGoS (e.g., "bot0", "bot1")
+    robot_id_ = GetId();
+	//GetNodeAttribute(t_node, "nodes_per_domain", nodes_per_domain_);
+	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 115);
+
+
+    // Calculate domain ID from robot ID
+    std::string bot_prefix = "bot";
+    if (robot_id_.find(bot_prefix) == 0) {
+        std::string num_str = robot_id_.substr(bot_prefix.length());
+        try {
+            int robot_num = std::stoi(num_str);
+            domain_id_ = robot_num / nodes_per_domain_;  // Group by nodes_per_domain_
+        } catch (const std::exception& e) {
+            RCLCPP_ERROR(rclcpp::get_logger("argos"), "Invalid robot ID format: %s", robot_id_.c_str());
+            domain_id_ = 0;
+        }
+    } else {
+        RCLCPP_ERROR(rclcpp::get_logger("argos"), "Robot ID %s doesn't start with 'bot'", robot_id_.c_str());
+        domain_id_ = 0;
+    }
+
+	// Create a context with the domain ID
+    auto context = std::make_shared<rclcpp::Context>();
+    rclcpp::InitOptions init_options;
+    init_options.set_domain_id(domain_id_);
+	init_options.auto_initialize_logging(false);  // Prevent multiple logging inits
+    context->init(0, nullptr, init_options);
+
+    // Create node with unique name
+    std::string node_name = "argos_ros_node_" + robot_id_;
+    nodeHandle_ = std::make_shared<rclcpp::Node>(node_name, rclcpp::NodeOptions().context(context));
+
+	// Retrieve and print the actual domain ID
+	auto actual_domain_id = context->get_domain_id();
+	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);
+
+	/**if (!ros_initialized) {
+        global_context_ = std::make_shared<rclcpp::Context>();
+        int argc = 0;
+        char** argv = nullptr;
+        rclcpp::InitOptions init_options;
+        init_options.auto_initialize_logging(false);  // Prevent multiple logging inits
+        global_context_->init(argc, argv, init_options);
+        //rcl_logging_configure(global_context_->get_rcl_context().get(), &rcl_logging_rosout_output_handler);
+        ros_initialized = true;
+    }
+
+    // Create node with domain ID using the shared context
+    std::string node_name = "argos_ros_node_" + robot_id_;
+    rclcpp::NodeOptions options;
+    options.context(global_context_);
+    options.parameter_overrides({{"__domain_id", domain_id_}});  // Set domain ID per node
+    nodeHandle_ = std::make_shared<rclcpp::Node>(node_name, options);
+
+	// Retrieve and print the actual domain ID
+	auto actual_domain_id = rclcpp::get_node_options(*nodeHandle_).context()->get_domain_id();
+	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);*/
+
 	/********************************
 	 * For the robot sensors:
 	 * 1. Get sensor handles
@@ -54,34 +102,34 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	 ********************************/
 	if (HasSensor("footbot_light")){
 		stringstream lightTopic;
-		lightTopic 			<< "/" << GetId() << "/lightList";
+		lightTopic 			<< "/" << robot_id_ << "/lightList";
 		m_pcLight  			= GetSensor < CCI_FootBotLightSensor>("footbot_light");
-		lightListPublisher_ = ArgosRosBridge::nodeHandle -> create_publisher<LightList>(lightTopic.str(), 1);
+		lightListPublisher_ = nodeHandle_ -> create_publisher<LightList>(lightTopic.str(), 1);
 
 	}
 	if (HasSensor("footbot_proximity")){
 		stringstream proxTopic;
-		proxTopic 			<< "/" << GetId() << "/proximityList";
+		proxTopic 			<< "/" << robot_id_ << "/proximityList";
 		m_pcProximity 		= GetSensor < CCI_FootBotProximitySensor>("footbot_proximity");
-		promixityListPublisher_ = ArgosRosBridge::nodeHandle -> create_publisher<ProximityList>(proxTopic.str(), 1);
+		promixityListPublisher_ = nodeHandle_ -> create_publisher<ProximityList>(proxTopic.str(), 1);
 	}
 	if (HasSensor("positioning")){
 		stringstream positionTopic;
-		positionTopic 		<< "/" << GetId() << "/position";
+		positionTopic 		<< "/" << robot_id_ << "/position";
 		m_pcPosition 		= GetSensor < CCI_PositioningSensor>("positioning");
-		positionPublisher_ 	= ArgosRosBridge::nodeHandle -> create_publisher<Position>(positionTopic.str(), 1);
+		positionPublisher_ 	= nodeHandle_ -> create_publisher<Position>(positionTopic.str(), 1);
 	}
 	if (HasSensor("range_and_bearing")){
 		stringstream rabTopic;
-		rabTopic 			<< "/" << GetId() << "/rab";
+		rabTopic 			<< "/" << robot_id_ << "/rab";
 		m_pcRABS 			= GetSensor < CCI_RangeAndBearingSensor>("range_and_bearing");
-		rabPublisher_ 		= ArgosRosBridge::nodeHandle -> create_publisher<PacketList>(rabTopic.str(), 1);
+		rabPublisher_ 		= nodeHandle_ -> create_publisher<PacketList>(rabTopic.str(), 1);
 	}
 	if (HasSensor("colored_blob_omnidirectional_camera")){
 		stringstream blobTopic;
-		blobTopic 			<< "/" << GetId() << "/blobList";
+		blobTopic 			<< "/" << robot_id_ << "/blobList";
 		m_pcCamera 			= GetSensor < CCI_ColoredBlobOmnidirectionalCameraSensor>("colored_blob_omnidirectional_camera");
-		blobListPublisher_ 	= ArgosRosBridge::nodeHandle -> create_publisher<BlobList>(blobTopic.str(), 1);
+		blobListPublisher_ 	= nodeHandle_ -> create_publisher<BlobList>(blobTopic.str(), 1);
 	}
 
 	/********************************
@@ -92,8 +140,8 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	if (HasActuator("leds")){
 		m_pcLEDs = GetActuator< CCI_LEDsActuator >("leds");
 		stringstream cmdLedTopic;
-		cmdLedTopic 	<< "/" << GetId() << "/cmd_led";
-		cmdLedSubscriber_ = ArgosRosBridge::nodeHandle -> create_subscription<Led>(
+		cmdLedTopic 	<< "/" << robot_id_ << "/cmd_led";
+		cmdLedSubscriber_ = nodeHandle_ -> create_subscription<Led>(
 							cmdLedTopic.str(),
 							1,
 							std::bind(&ArgosRosBridge::cmdLedCallback, this, _1)
@@ -102,8 +150,8 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	if (HasActuator("range_and_bearing")){
 		m_pcRABA = GetActuator< CCI_RangeAndBearingActuator >("range_and_bearing");
 		stringstream cmdRabTopic;
-		cmdRabTopic 	<< "/" << GetId() << "/cmd_rab";
-		cmdRabSubscriber_ = ArgosRosBridge::nodeHandle -> create_subscription<Packet>(
+		cmdRabTopic 	<< "/" << robot_id_ << "/cmd_rab";
+		cmdRabSubscriber_ = nodeHandle_ -> create_subscription<Packet>(
 							cmdRabTopic.str(),
 							1,
 							std::bind(&ArgosRosBridge::cmdRabCallback, this, _1)
@@ -113,8 +161,8 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	if (HasActuator("differential_steering")){
 		m_pcWheels = GetActuator< CCI_DifferentialSteeringActuator >("differential_steering");
 		stringstream cmdVelTopic;
-		cmdVelTopic 	<< "/" << GetId() << "/cmd_vel";
-		cmdVelSubscriber_ = ArgosRosBridge::nodeHandle -> create_subscription<Twist>(
+		cmdVelTopic 	<< "/" << robot_id_ << "/cmd_vel";
+		cmdVelSubscriber_ = nodeHandle_ -> create_subscription<Twist>(
 							cmdVelTopic.str(),
 							1,
 							std::bind(&ArgosRosBridge::cmdVelCallback, this, _1)
@@ -140,6 +188,8 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	* have to recompile if we want to try other settings.
 	*/
 	GetNodeAttributeOrDefault(t_node, "stopWithoutSubscriberCount", stopWithoutSubscriberCount, stopWithoutSubscriberCount);
+	// Start spinning in a detached thread
+    //std::thread([this]() { rclcpp::spin(nodeHandle_); }).detach();
 
 }
 
@@ -149,7 +199,7 @@ bool blobComparator(Blob a, Blob b) {
 
 void ArgosRosBridge::ControlStep() {
 
-	rclcpp::spin_some(ArgosRosBridge::nodeHandle);
+	rclcpp::spin_some(nodeHandle_);
 
 	/*********************************
 	 * Get readings from light sensor
@@ -290,7 +340,7 @@ void ArgosRosBridge::cmdVelCallback(const Twist& twist) {
 }
 
 void ArgosRosBridge::cmdRabCallback(const Packet& packet){
-	//cout << GetId() << " Packet data as received: " << packet.data[0] << " for id: " << std::stoi( packet.id ) <<endl;
+	//cout << robot_id_ << " Packet data as received: " << packet.data[0] << " for id: " << std::stoi( packet.id ) <<endl;
 	m_pcRABA -> SetData(0, packet.data[0]);
 	m_pcRABA -> SetData(1, std::stoi( packet.id ));
 }
@@ -339,7 +389,11 @@ void ArgosRosBridge::cmdLedCallback(const Led& ledColor){
 		}
 	}
 }
+void ArgosRosBridge::Destroy() {
 
+	nodeHandle_.reset();  // Destroy node first
+     
+}
 /*
 * This statement notifies ARGoS of the existence of the controller.
 * It binds the class passed as first argument to the string passed as

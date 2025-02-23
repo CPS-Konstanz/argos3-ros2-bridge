@@ -58,6 +58,11 @@ using namespace argos;
 using namespace std::chrono_literals;
 class ArgosRosBridge : public CCI_Controller{
     private:
+		std::string robot_id_;
+		int nodes_per_domain_;
+		int domain_id_;
+		std::shared_ptr<rclcpp::Node> nodeHandle_;  // Per-instance node
+		static rclcpp::Context::SharedPtr global_context_;  // Single shared context
 		/************************************
 		 * Publishers
 		 ***********************************/
@@ -151,7 +156,7 @@ class ArgosRosBridge : public CCI_Controller{
 		/*
 		* Called to cleanup what done by Init() when the experiment finishes.
 		*/
-		virtual void Destroy() {}
+		virtual void Destroy();
 		/*
 		* The callback method for getting new commanded speed on the cmd_vel topic.
 		*/
@@ -165,6 +170,6 @@ class ArgosRosBridge : public CCI_Controller{
 		 */
 		void cmdLedCallback(const argos3_ros2_bridge::msg::Led& ledColor);
 
-		static std::shared_ptr<rclcpp::Node> nodeHandle;
+		static bool ros_initialized;
 };
 #endif /* ARGOS_ROS_BRIDGE_H_ */
