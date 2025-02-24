@@ -59,6 +59,7 @@ using namespace std::chrono_literals;
 class ArgosRosBridge : public CCI_Controller{
     private:
 		std::string robot_id_;
+		bool multiple_domains_;
 		int nodes_per_domain_;
 		int domain_id_;
 		std::shared_ptr<rclcpp::Node> nodeHandle_;  // Per-instance node

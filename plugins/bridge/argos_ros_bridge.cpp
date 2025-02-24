@@ -30,6 +30,7 @@ ArgosRosBridge::ArgosRosBridge() :
 		stepsSinceCallback(0),
 		leftSpeed(0),
 		rightSpeed(0),
+		multiple_domains_(false),
 		domain_id_(0){}
 
 ArgosRosBridge::~ArgosRosBridge(){}
@@ -38,25 +39,30 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 
 	// Get robot ID from ARGoS (e.g., "bot0", "bot1")
     robot_id_ = GetId();
-	//GetNodeAttribute(t_node, "nodes_per_domain", nodes_per_domain_);
+	//GetNodeAttribute(t_node, "multiple_domains", multiple_domains_);
+	GetNodeAttributeOrDefault(t_node, "multiple_domains", multiple_domains_, false);
 	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 115);
+	GetNodeAttributeOrDefault(t_node, "ros_domain_id", domain_id_, 0);
 
 
     // Calculate domain ID from robot ID
-    std::string bot_prefix = "bot";
-    if (robot_id_.find(bot_prefix) == 0) {
-        std::string num_str = robot_id_.substr(bot_prefix.length());
-        try {
-            int robot_num = std::stoi(num_str);
-            domain_id_ = robot_num / nodes_per_domain_;  // Group by nodes_per_domain_
-        } catch (const std::exception& e) {
-            RCLCPP_ERROR(rclcpp::get_logger("argos"), "Invalid robot ID format: %s", robot_id_.c_str());
-            domain_id_ = 0;
-        }
-    } else {
-        RCLCPP_ERROR(rclcpp::get_logger("argos"), "Robot ID %s doesn't start with 'bot'", robot_id_.c_str());
-        domain_id_ = 0;
-    }
+	if (multiple_domains_) {
+		std::string bot_prefix = "bot";
+		if (robot_id_.find(bot_prefix) == 0) {
+			std::string num_str = robot_id_.substr(bot_prefix.length());
+			try {
+				int robot_num = std::stoi(num_str);
+				domain_id_ = robot_num / nodes_per_domain_;  // Group by nodes_per_domain_
+			} catch (const std::exception& e) {
+				RCLCPP_ERROR(rclcpp::get_logger("argos"), "Invalid robot ID format: %s", robot_id_.c_str());
+				domain_id_ = 0;
+			}
+		} else {
+			RCLCPP_ERROR(rclcpp::get_logger("argos"), "Robot ID %s doesn't start with 'bot'", robot_id_.c_str());
+			domain_id_ = 0;
+		}
+	}
+    
 
 	// Create a context with the domain ID
     auto context = std::make_shared<rclcpp::Context>();
@@ -390,8 +396,9 @@ void ArgosRosBridge::cmdLedCallback(const Led& ledColor){
 	}
 }
 void ArgosRosBridge::Destroy() {
-
-	nodeHandle_.reset();  // Destroy node first
+	// takes too log for simulator to close.
+	// we force ros nodes to close instead
+	//nodeHandle_.reset();  // Destroy node first
      
 }
 /*
