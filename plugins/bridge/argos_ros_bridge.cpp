@@ -79,28 +79,6 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	auto actual_domain_id = context->get_domain_id();
 	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);
 
-	/**if (!ros_initialized) {
-        global_context_ = std::make_shared<rclcpp::Context>();
-        int argc = 0;
-        char** argv = nullptr;
-        rclcpp::InitOptions init_options;
-        init_options.auto_initialize_logging(false);  // Prevent multiple logging inits
-        global_context_->init(argc, argv, init_options);
-        //rcl_logging_configure(global_context_->get_rcl_context().get(), &rcl_logging_rosout_output_handler);
-        ros_initialized = true;
-    }
-
-    // Create node with domain ID using the shared context
-    std::string node_name = "argos_ros_node_" + robot_id_;
-    rclcpp::NodeOptions options;
-    options.context(global_context_);
-    options.parameter_overrides({{"__domain_id", domain_id_}});  // Set domain ID per node
-    nodeHandle_ = std::make_shared<rclcpp::Node>(node_name, options);
-
-	// Retrieve and print the actual domain ID
-	auto actual_domain_id = rclcpp::get_node_options(*nodeHandle_).context()->get_domain_id();
-	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);*/
-
 	/********************************
 	 * For the robot sensors:
 	 * 1. Get sensor handles
@@ -346,13 +324,12 @@ void ArgosRosBridge::cmdVelCallback(const Twist& twist) {
 }
 
 void ArgosRosBridge::cmdRabCallback(const Packet& packet){
-	//cout << robot_id_ << " Packet data as received: " << packet.data[0] << " for id: " << std::stoi( packet.id ) <<endl;
 	m_pcRABA -> SetData(0, packet.data[0]);
 	m_pcRABA -> SetData(1, std::stoi( packet.id ));
 }
 void ArgosRosBridge::cmdLedCallback(const Led& ledColor){
 	/**
-	 * TODO: Btter way to set the led colors	
+	 * TODO: Better way to set the led colors instead of this exhaustive if-else
 	 */
 	if ( ledColor.color == "red" ){
 		if (ledColor.mode == "ALL"){
@@ -396,9 +373,8 @@ void ArgosRosBridge::cmdLedCallback(const Led& ledColor){
 	}
 }
 void ArgosRosBridge::Destroy() {
-	// takes too log for simulator to close.
-	// we force ros nodes to close instead
-	//nodeHandle_.reset();  // Destroy node first
+	
+	nodeHandle_.reset();  // Destroy node first
      
 }
 /*
