@@ -17,41 +17,52 @@
 
 /* Definition of the CCI_Controller class. */
 #include <argos3/core/control_interface/ci_controller.h>
-/* Definition of the differential steering actuator */
-#include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
 /* Definition of the LEDs actuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
-/* Definition of the omnidirectional camera sensor */
-#include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
-/* Definition of the range-and-bearing actuator */
-#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
-/* Definition of the range-and-bearing sensor */
-#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
-/* Definition of the foot-bot light sensor */
-#include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_light_sensor.h>
-/* Definition of the foot-bot proximity sensor */
-#include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
 /* Definition of the positioning sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_positioning_sensor.h>
+/* Definition of the foot-bot light sensor */
+#include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_light_sensor.h>
+/* Definition of the range-and-bearing sensor */
+#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
+/* Definition of the foot-bot proximity sensor */
+#include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
+/* Definition of the range-and-bearing actuator */
+#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
+/* Definition of the differential steering actuator */
+#include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
+/* Definition of the distance scanner sensor */
+#include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_distance_scanner_sensor.h>
+/* Definition of the perspective camera camera sensor */
+#include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_perspective_camera_sensor.h>
+/* Definition of the omnidirectional camera sensor */
+#include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
+
 
 /**
  * ROS2 Imports
  */
 #include "rclcpp/rclcpp.hpp"
-#include "geometry_msgs/msg/twist.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include "argos3_ros2_bridge/msg/led.hpp"
-#include "argos3_ros2_bridge/msg/light_list.hpp"
-#include "argos3_ros2_bridge/msg/blob_list.hpp"
-#include "argos3_ros2_bridge/msg/proximity_list.hpp"
-#include "argos3_ros2_bridge/msg/position.hpp"
 #include "argos3_ros2_bridge/msg/packet.hpp"
+#include "argos3_ros2_bridge/msg/position.hpp"
+#include "argos3_ros2_bridge/msg/blob_list.hpp"
+#include "argos3_ros2_bridge/msg/light_list.hpp"
 #include "argos3_ros2_bridge/msg/packet_list.hpp"
+#include "argos3_ros2_bridge/msg/proximity_list.hpp"
+
 
 using namespace argos;
 using namespace std::chrono_literals;
 class ArgosRosBridge : public CCI_Controller{
     private:
+		std::string robot_id_;
+		int nodes_per_domain_;
+		int domain_id_;
+		std::shared_ptr<rclcpp::Node> nodeHandle_;  // Per-instance node
+		static rclcpp::Context::SharedPtr global_context_;  // Single shared context
 		/************************************
 		 * Publishers
 		 ***********************************/
@@ -141,19 +152,11 @@ class ArgosRosBridge : public CCI_Controller{
 		* The length of the time step is set in the XML file.
 		*/
 		virtual void ControlStep();
-		/*
-		* This function resets the controller to its state right after the
-		* Init().
-		* It is called when you press the reset button in the GUI.
-		* In this example controller there is no need for resetting anything,
-		* so the function could have been omitted. It's here just for
-		* completeness.
-		*/
-		virtual void Reset();
+		
 		/*
 		* Called to cleanup what done by Init() when the experiment finishes.
 		*/
-		virtual void Destroy() {}
+		virtual void Destroy();
 		/*
 		* The callback method for getting new commanded speed on the cmd_vel topic.
 		*/
@@ -167,6 +170,6 @@ class ArgosRosBridge : public CCI_Controller{
 		 */
 		void cmdLedCallback(const argos3_ros2_bridge::msg::Led& ledColor);
 
-		static std::shared_ptr<rclcpp::Node> nodeHandle;
+		static bool ros_initialized;
 };
 #endif /* ARGOS_ROS_BRIDGE_H_ */
