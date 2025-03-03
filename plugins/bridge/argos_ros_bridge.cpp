@@ -38,7 +38,6 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 
 	// Get robot ID from ARGoS (e.g., "bot0", "bot1")
     robot_id_ = GetId();
-	//GetNodeAttribute(t_node, "nodes_per_domain", nodes_per_domain_);
 	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 115);
 
 
@@ -72,28 +71,6 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	// Retrieve and print the actual domain ID
 	auto actual_domain_id = context->get_domain_id();
 	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);
-
-	/**if (!ros_initialized) {
-        global_context_ = std::make_shared<rclcpp::Context>();
-        int argc = 0;
-        char** argv = nullptr;
-        rclcpp::InitOptions init_options;
-        init_options.auto_initialize_logging(false);  // Prevent multiple logging inits
-        global_context_->init(argc, argv, init_options);
-        //rcl_logging_configure(global_context_->get_rcl_context().get(), &rcl_logging_rosout_output_handler);
-        ros_initialized = true;
-    }
-
-    // Create node with domain ID using the shared context
-    std::string node_name = "argos_ros_node_" + robot_id_;
-    rclcpp::NodeOptions options;
-    options.context(global_context_);
-    options.parameter_overrides({{"__domain_id", domain_id_}});  // Set domain ID per node
-    nodeHandle_ = std::make_shared<rclcpp::Node>(node_name, options);
-
-	// Retrieve and print the actual domain ID
-	auto actual_domain_id = rclcpp::get_node_options(*nodeHandle_).context()->get_domain_id();
-	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);*/
 
 	/********************************
 	 * For the robot sensors:
@@ -330,11 +307,8 @@ void ArgosRosBridge::cmdVelCallback(const Twist& twist) {
 	double R = WHEEL_RADIUS;		// Wheel radius
 
 	// Calculate left and right wheel speeds using differential drive kinematics
-	//leftSpeed = (v - (L / 2) * omega) / R;
-	//rightSpeed = (v + (L / 2) * omega) / R;
-
-	leftSpeed = twist.linear.x;
-	rightSpeed = twist.linear.y;
+	leftSpeed = (v - (L / 2) * omega) / R;
+	rightSpeed = (v + (L / 2) * omega) / R;
 
 	stepsSinceCallback = 0;
 }
