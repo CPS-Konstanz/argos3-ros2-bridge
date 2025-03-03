@@ -38,8 +38,7 @@ ArgosRosBridge::~ArgosRosBridge(){}
 void ArgosRosBridge::Init(TConfigurationNode& t_node){
 
 	// Get robot ID from ARGoS (e.g., "bot0", "bot1")
-    robot_id_ = GetId();
-	//GetNodeAttribute(t_node, "multiple_domains", multiple_domains_);
+  robot_id_ = GetId();
 	GetNodeAttributeOrDefault(t_node, "multiple_domains", multiple_domains_, false);
 	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 115);
 	GetNodeAttributeOrDefault(t_node, "ros_domain_id", domain_id_, 0);
@@ -314,11 +313,8 @@ void ArgosRosBridge::cmdVelCallback(const Twist& twist) {
 	double R = WHEEL_RADIUS;		// Wheel radius
 
 	// Calculate left and right wheel speeds using differential drive kinematics
-	//leftSpeed = (v - (L / 2) * omega) / R;
-	//rightSpeed = (v + (L / 2) * omega) / R;
-
-	leftSpeed = twist.linear.x;
-	rightSpeed = twist.linear.y;
+	leftSpeed = (v - (L / 2) * omega) / R;
+	rightSpeed = (v + (L / 2) * omega) / R;
 
 	stepsSinceCallback = 0;
 }
