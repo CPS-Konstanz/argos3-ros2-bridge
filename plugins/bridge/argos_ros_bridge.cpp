@@ -38,9 +38,9 @@ ArgosRosBridge::~ArgosRosBridge(){}
 void ArgosRosBridge::Init(TConfigurationNode& t_node){
 
 	// Get robot ID from ARGoS (e.g., "bot0", "bot1")
-  robot_id_ = GetId();
+  	robot_id_ = GetId();
 	GetNodeAttributeOrDefault(t_node, "multiple_domains", multiple_domains_, false);
-	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 115);
+	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 50);
 	GetNodeAttributeOrDefault(t_node, "ros_domain_id", domain_id_, 0);
 
 
