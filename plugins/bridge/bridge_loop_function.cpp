@@ -56,7 +56,7 @@ void CBridgeLoopFunction::PreStep()
     rclcpp::Time expected_stamp(static_cast<int64_t>(step * time_per_step_sec * 1e9));
     const double expected_secs = expected_stamp.seconds();
 
-    constexpr auto wait_timeout = std::chrono::milliseconds(10); // 等待
+    constexpr auto wait_timeout = std::chrono::milliseconds(10);
     const int max_attempts = 20;
 
     bool condition_met = false;
