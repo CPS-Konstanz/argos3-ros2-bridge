@@ -2,7 +2,7 @@
  * argos_ros_bridge.h
  *
  * Created on: 28 Jan 2025
- *  
+ *
  */
 
 #ifndef ARGOS_ROS_BRIDGE_H_
@@ -38,7 +38,6 @@
 /* Definition of the omnidirectional camera sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
 
-
 /**
  * ROS2 Imports
  */
@@ -53,124 +52,119 @@
 #include "argos3_ros2_bridge/msg/packet_list.hpp"
 #include "argos3_ros2_bridge/msg/proximity_list.hpp"
 
-
 using namespace argos;
 using namespace std::chrono_literals;
-class ArgosRosBridge : public CCI_Controller{
-    private:
-		std::string robot_id_;
-		bool multiple_domains_;
-		int nodes_per_domain_;
-		int domain_id_;
-		std::shared_ptr<rclcpp::Node> nodeHandle_;  // Per-instance node
-		static rclcpp::Context::SharedPtr global_context_;  // Single shared context
-		/************************************
-		 * Publishers
-		 ***********************************/
-		// Light list publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::LightList>::SharedPtr lightListPublisher_;
-		// Proximity sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::ProximityList>::SharedPtr promixityListPublisher_;
-		// Omnidirectional camera sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::BlobList>::SharedPtr blobListPublisher_;
-		// Position sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::Position>::SharedPtr positionPublisher_;
-		// Position sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
+class ArgosRosBridge : public CCI_Controller
+{
+private:
+	std::string robot_id_;
+	bool multiple_domains_;
+	int nodes_per_domain_;
+	int domain_id_;
+	std::shared_ptr<rclcpp::Node> nodeHandle_;		   // Per-instance node
+	static rclcpp::Context::SharedPtr global_context_; // Single shared context
+	/************************************
+	 * Publishers
+	 ***********************************/
+	// Light list publisher
+	rclcpp::Publisher<argos3_ros2_bridge::msg::LightList>::SharedPtr lightListPublisher_;
+	// Proximity sensor publisher
+	rclcpp::Publisher<argos3_ros2_bridge::msg::ProximityList>::SharedPtr promixityListPublisher_;
+	// Omnidirectional camera sensor publisher
+	rclcpp::Publisher<argos3_ros2_bridge::msg::BlobList>::SharedPtr blobListPublisher_;
+	// Position sensor publisher
+	rclcpp::Publisher<argos3_ros2_bridge::msg::Position>::SharedPtr positionPublisher_;
+	// Position sensor publisher
+	rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
 
-		/************************************
-		 * Subscribers
-		 ***********************************/
-		// Subscriber for cmd_vel (Twist message) topic.
-		rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmdVelSubscriber_;
-		// Subscriber for cmd_rab (Packet) topic
-		rclcpp::Subscription<argos3_ros2_bridge::msg::Packet>::SharedPtr cmdRabSubscriber_;
-		// Subscriber for cmd_led (Led) topic
-		rclcpp::Subscription<argos3_ros2_bridge::msg::Led>::SharedPtr cmdLedSubscriber_;
+	/************************************
+	 * Subscribers
+	 ***********************************/
+	// Subscriber for cmd_vel (Twist message) topic.
+	rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmdVelSubscriber_;
+	// Subscriber for cmd_rab (Packet) topic
+	rclcpp::Subscription<argos3_ros2_bridge::msg::Packet>::SharedPtr cmdRabSubscriber_;
+	// Subscriber for cmd_led (Led) topic
+	rclcpp::Subscription<argos3_ros2_bridge::msg::Led>::SharedPtr cmdLedSubscriber_;
 
+	rclcpp::TimerBase::SharedPtr timer_;
 
+	/* Pointer to the differential steering actuator */
+	CCI_DifferentialSteeringActuator *m_pcWheels;
+	/* Pointer to the foot-bot light sensor */
+	CCI_FootBotLightSensor *m_pcLight;
+	/* Pointer to the LEDs actuator */
+	CCI_LEDsActuator *m_pcLEDs;
+	/* Pointer to the omnidirectional camera sensor */
+	CCI_ColoredBlobOmnidirectionalCameraSensor *m_pcCamera;
+	/* Pointer to proximity sensor */
+	CCI_FootBotProximitySensor *m_pcProximity;
+	/* Pointer to positioning sensor */
+	CCI_PositioningSensor *m_pcPosition;
+	/* Pointer to the range-and-bearing sensor */
+	CCI_RangeAndBearingSensor *m_pcRABS;
+	/* Pointer to the range-and-bearing actuator */
+	CCI_RangeAndBearingActuator *m_pcRABA;
 
-		rclcpp::TimerBase::SharedPtr timer_;
+	// The following constant values were copied from the argos source tree from
+	// the file src/plugins/robots/foot-bot/simulator/footbot_entity.cpp
+	static constexpr Real HALF_BASELINE = 0.07f; // Half the distance between wheels
+	static constexpr Real WHEEL_RADIUS = 0.029112741f;
 
+	/*
+	 * The following variables are used as parameters for the
+	 * algorithm. You can set their value in the <parameters> section
+	 * of the XML configuration file, under the
+	 * <controllers><argos_ros_bot_controller> section.
+	 */
 
-		/* Pointer to the differential steering actuator */
-		CCI_DifferentialSteeringActuator* m_pcWheels;
-		/* Pointer to the foot-bot light sensor */
-		CCI_FootBotLightSensor* m_pcLight;
-		/* Pointer to the LEDs actuator */
-		CCI_LEDsActuator* m_pcLEDs;
-		/* Pointer to the omnidirectional camera sensor */
-		CCI_ColoredBlobOmnidirectionalCameraSensor* m_pcCamera;
-		/* Pointer to proximity sensor */
-		CCI_FootBotProximitySensor* m_pcProximity;
-		/* Pointer to positioning sensor */
-		CCI_PositioningSensor* m_pcPosition;
-		/* Pointer to the range-and-bearing sensor */
-		CCI_RangeAndBearingSensor* m_pcRABS;
-		/* Pointer to the range-and-bearing actuator */
-		CCI_RangeAndBearingActuator* m_pcRABA;
+	// The number of time steps from the time step of the last callback
+	// after which leftSpeed and rightSpeed will be set to zero.  Useful to
+	// shutdown the robot after the controlling code on the ROS side has quit.
+	int stopWithoutSubscriberCount;
 
-		// The following constant values were copied from the argos source tree from
-		// the file src/plugins/robots/foot-bot/simulator/footbot_entity.cpp
-		static constexpr Real HALF_BASELINE = 0.07f; // Half the distance between wheels
-		static constexpr Real WHEEL_RADIUS = 0.029112741f;
+	// The number of time steps since the last callback.
+	int stepsSinceCallback;
 
-		/*
-		* The following variables are used as parameters for the
-		* algorithm. You can set their value in the <parameters> section
-		* of the XML configuration file, under the
-		* <controllers><argos_ros_bot_controller> section.
-		*/
+	// Most recent left and right wheel speeds, converted from the ROS twist
+	// message.
+	Real leftSpeed, rightSpeed;
 
-		// The number of time steps from the time step of the last callback
-		// after which leftSpeed and rightSpeed will be set to zero.  Useful to
-		// shutdown the robot after the controlling code on the ROS side has quit.
-		int stopWithoutSubscriberCount;
+public:
+	ArgosRosBridge();
 
-		// The number of time steps since the last callback.
-		int stepsSinceCallback;
+	virtual ~ArgosRosBridge();
 
-		// Most recent left and right wheel speeds, converted from the ROS twist
-		// message.
-		Real leftSpeed, rightSpeed;
+	/*
+	 * This function initializes the controller.
+	 * The 't_node' variable points to the <parameters> section in the XML
+	 * file in the <controllers><footbot_ccw_wander_controller> section.
+	 */
+	virtual void Init(TConfigurationNode &t_node);
 
+	/*
+	 * This function is called once every time step.
+	 * The length of the time step is set in the XML file.
+	 */
+	virtual void ControlStep();
 
-    public:
+	/*
+	 * Called to cleanup what done by Init() when the experiment finishes.
+	 */
+	virtual void Destroy();
+	/*
+	 * The callback method for getting new commanded speed on the cmd_vel topic.
+	 */
+	void cmdVelCallback(const geometry_msgs::msg::Twist &twist);
+	/*
+	 * The callback method for getting new commanded packet on the cmd_packet topic.
+	 */
+	void cmdRabCallback(const argos3_ros2_bridge::msg::Packet &packet);
+	/*
+	 * The callback method for getting new commanded led color on the cmd_led topic.
+	 */
+	void cmdLedCallback(const argos3_ros2_bridge::msg::Led &ledColor);
 
-		ArgosRosBridge();
-
-		virtual ~ArgosRosBridge();
-
-		/*
-		* This function initializes the controller.
-		* The 't_node' variable points to the <parameters> section in the XML
-		* file in the <controllers><footbot_ccw_wander_controller> section.
-		*/
-		virtual void Init(TConfigurationNode& t_node);
-
-		/*
-		* This function is called once every time step.
-		* The length of the time step is set in the XML file.
-		*/
-		virtual void ControlStep();
-		
-		/*
-		* Called to cleanup what done by Init() when the experiment finishes.
-		*/
-		virtual void Destroy();
-		/*
-		* The callback method for getting new commanded speed on the cmd_vel topic.
-		*/
-		void cmdVelCallback(const geometry_msgs::msg::Twist& twist);
-		/*
-		 * The callback method for getting new commanded packet on the cmd_packet topic.
-		 */
-		void cmdRabCallback(const argos3_ros2_bridge::msg::Packet& packet);
-		/*
-		 * The callback method for getting new commanded led color on the cmd_led topic.
-		 */
-		void cmdLedCallback(const argos3_ros2_bridge::msg::Led& ledColor);
-
-		static bool ros_initialized;
+	static bool ros_initialized;
 };
 #endif /* ARGOS_ROS_BRIDGE_H_ */
