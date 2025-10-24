@@ -50,4 +50,8 @@ After building, the code will generate a shared libraries:
 - **Controller**  
   `build/argos3_ros2_bridge/plugins/bridge/libargos_ros_bridge.so`
 
-When designing your experiment, set it as the **controller** in your ARGoS configuration.
+When designing your experiment, set it as the **controller** in your ARGoS configuration, and add the following parameters.
+
+```bash
+  <params multiple_domains="true" nodes_per_domain="20" ros_domain_id="0" enable_time_synchronization=true max_attempts=10/>
+```
