@@ -21,6 +21,8 @@ ArgosRosBridge::ArgosRosBridge() : robot_id_(),
 								   multiple_domains_(false),
 								   nodes_per_domain_(0),
 								   domain_id_(0),
+								   enable_time_synchronization(false),
+								   max_attempts(10),
 								   nodeHandle_(nullptr),
 								   // --- publishers ---
 								   lightListPublisher_(nullptr),
@@ -28,6 +30,7 @@ ArgosRosBridge::ArgosRosBridge() : robot_id_(),
 								   blobListPublisher_(nullptr),
 								   positionPublisher_(nullptr),
 								   rabPublisher_(nullptr),
+								   clockPublisher_(nullptr),
 								   // --- subscribers ---
 								   cmdVelSubscriber_(nullptr),
 								   cmdRabSubscriber_(nullptr),
@@ -102,6 +105,24 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 	auto actual_domain_id = context->get_domain_id();
 	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);
 
+	/********************************
+	 * For clock
+	 ********************************/
+	if (enable_time_synchronization)
+	{
+		// 1. Create the topics to publish argos3 clock
+		std::stringstream argosClockTopic;
+		argosClockTopic << "/" << robot_id_ << "/argos3_clock";
+		clockPublisher_ = nodeHandle_->create_publisher<rosgraph_msgs::msg::Clock>(argosClockTopic.str(), 1);
+
+		// 2. Create the subscribers to subscribe the ros2 clock
+		std::stringstream rosClockTopic;
+		rosClockTopic << "/" << robot_id_ << "/ros2_clock";
+		clockSubscriber_ = nodeHandle_->create_subscription<rosgraph_msgs::msg::Clock>(
+			rosClockTopic.str(),
+			1,
+			std::bind(&ArgosRosBridge::clockCallback, this, _1));
+	}
 	/********************************
 	 * For the robot sensors:
 	 * 1. Get sensor handles
@@ -214,6 +235,24 @@ void ArgosRosBridge::ControlStep()
 {
 
 	rclcpp::spin_some(nodeHandle_);
+
+	/*********************************
+	 * Publish clock
+	 *********************************/
+	if (enable_time_synchronization)
+	{
+		const auto &sim = argos::CSimulator::GetInstance();
+		argos::CPhysicsEngine &engine = sim.GetPhysicsEngine("dyn2d");
+
+		argos::Real sim_time = sim.GetSpace().GetSimulationClock() * engine.GetPhysicsClockTick();
+
+		// Convert argos3 time (seconds) to ROS2 time (nanoseconds)
+		rclcpp::Time ros_sim_time(static_cast<uint64_t>(sim_time * 1e9));
+
+		rosgraph_msgs::msg::Clock msg;
+		msg.clock = ros_sim_time;
+		clockPublisher_->publish(msg);
+	}
 
 	/*********************************
 	 * Get readings from light sensor
@@ -343,6 +382,40 @@ void ArgosRosBridge::ControlStep()
 	{
 		m_pcWheels->SetLinearVelocity(leftSpeed, rightSpeed);
 	}
+
+	/*********************************************
+	 * Time synchronization
+	 *********************************************/
+	if (enable_time_synchronization)
+	{
+		const auto &sim = argos::CSimulator::GetInstance();
+		argos::CPhysicsEngine &engine = sim.GetPhysicsEngine("dyn2d");
+		double argos_time_sec =
+			sim.GetSpace().GetSimulationClock() * engine.GetPhysicsClockTick();
+
+		rclcpp::Time argos_time(static_cast<int64_t>(argos_time_sec * 1e9));
+
+		double tolerance = 1e-9;
+
+		for (int attempt = 0; attempt < max_attempts; ++attempt)
+		{
+			// Compute the time difference between ROS2 clock and ARGoS simulation time
+			double diff = std::abs(ros2_time_.seconds() - argos_time.seconds());
+
+			// If within tolerance → clocks are synchronized
+			if (diff <= tolerance)
+			{
+				break;
+			}
+			// Sleep briefly before checking again
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+			if (attempt == max_attempts - 1)
+			{
+				std::cout << "Time synchronization failed after " << max_attempts << ", last diff = " << diff << ". Please increase the max_attempts." << std::endl;
+			}
+		}
+	}
 }
 
 void ArgosRosBridge::cmdVelCallback(const Twist &twist)
@@ -425,6 +498,12 @@ void ArgosRosBridge::cmdLedCallback(const Led &ledColor)
 		}
 	}
 }
+
+void ArgosRosBridge::clockCallback(const rosgraph_msgs::msg::Clock::SharedPtr msg)
+{
+	ros2_time_ = msg->clock;
+}
+
 void ArgosRosBridge::Destroy()
 {
 

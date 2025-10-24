@@ -15,6 +15,9 @@
 #include <sstream>
 #include <cuchar>
 
+#include <argos3/core/simulator/simulator.h>
+#include <argos3/core/simulator/space/space.h>
+
 /* Definition of the CCI_Controller class. */
 #include <argos3/core/control_interface/ci_controller.h>
 /* Definition of the LEDs actuator */
@@ -44,6 +47,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "rosgraph_msgs/msg/clock.hpp"
 #include "argos3_ros2_bridge/msg/led.hpp"
 #include "argos3_ros2_bridge/msg/packet.hpp"
 #include "argos3_ros2_bridge/msg/position.hpp"
@@ -61,7 +65,11 @@ private:
 	bool multiple_domains_;
 	int nodes_per_domain_;
 	int domain_id_;
-	std::shared_ptr<rclcpp::Node> nodeHandle_;		   // Per-instance node
+	bool enable_time_synchronization;
+	// Maximum number of attempts for synchronization
+	int max_attempts;
+	std::shared_ptr<rclcpp::Node>
+		nodeHandle_;								   // Per-instance node
 	static rclcpp::Context::SharedPtr global_context_; // Single shared context
 	/************************************
 	 * Publishers
@@ -76,6 +84,8 @@ private:
 	rclcpp::Publisher<argos3_ros2_bridge::msg::Position>::SharedPtr positionPublisher_;
 	// Position sensor publisher
 	rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
+	// argos clock publisher
+	rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clockPublisher_;
 
 	/************************************
 	 * Subscribers
@@ -86,6 +96,8 @@ private:
 	rclcpp::Subscription<argos3_ros2_bridge::msg::Packet>::SharedPtr cmdRabSubscriber_;
 	// Subscriber for cmd_led (Led) topic
 	rclcpp::Subscription<argos3_ros2_bridge::msg::Led>::SharedPtr cmdLedSubscriber_;
+	// Subscriber for ros2 clock topic
+	rclcpp::Subscription<rosgraph_msgs::msg::Clock>::SharedPtr clockSubscriber_;
 
 	rclcpp::TimerBase::SharedPtr timer_;
 
@@ -129,6 +141,7 @@ private:
 	// Most recent left and right wheel speeds, converted from the ROS twist
 	// message.
 	Real leftSpeed, rightSpeed;
+	rclcpp::Time ros2_time_;
 
 public:
 	ArgosRosBridge();
@@ -164,6 +177,10 @@ public:
 	 * The callback method for getting new commanded led color on the cmd_led topic.
 	 */
 	void cmdLedCallback(const argos3_ros2_bridge::msg::Led &ledColor);
+	/*
+	 * The callback method for getting new ros time on the ros2_clock topic.
+	 */
+	void clockCallback(const rosgraph_msgs::msg::Clock::SharedPtr msg);
 
 	static bool ros_initialized;
 };
