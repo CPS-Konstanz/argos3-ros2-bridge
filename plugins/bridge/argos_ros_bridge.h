@@ -29,8 +29,14 @@
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
 /* Definition of the range-and-bearing actuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
+/* Definition of the turtlebot3 lidar sensor*/
+#include <argos3/plugins/robots/turtlebot3/control_interface/ci_turtlebot3_lidar_sensor.h>
+/* Definition of the differential steering sensor */
+#include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_sensor.h>
 /* Definition of the differential steering actuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
+/* Definition of the turtlebot3 proximity sensor */
+#include <argos3/plugins/robots/turtlebot3/control_interface/ci_turtlebot3_proximity_sensor.h>
 /* Definition of the distance scanner sensor */
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_distance_scanner_sensor.h>
 /* Definition of the perspective camera camera sensor */
@@ -78,6 +84,11 @@ class ArgosRosBridge : public CCI_Controller{
 		// Position sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
 
+		// LiDAR sensor publisher
+		rclpp::Publisher<argos3_ros2_bridge::msg::LidarScan>::SharedPtr lidarPublisher_;
+		// Differential steering sensor publisher
+		rclcpp::Publisher<argos3_ros2_bridge::msg::WheelVelocities>::SharedPtr wheelVelocitiesPublisher_;
+
 		/************************************
 		 * Subscribers
 		 ***********************************/
@@ -109,6 +120,11 @@ class ArgosRosBridge : public CCI_Controller{
 		CCI_RangeAndBearingSensor* m_pcRABS;
 		/* Pointer to the range-and-bearing actuator */
 		CCI_RangeAndBearingActuator* m_pcRABA;
+
+		/* Pointer to differential steering sensor */
+		CCI_DifferentialSteeringSensor* m_pcWheelsSensor;
+		/* Pointer to turtlebot3 lidar sensor */
+		CCI_TurtleBot3LidarSensor* m_pcLidar;
 
 		// The following constant values were copied from the argos source tree from
 		// the file src/plugins/robots/foot-bot/simulator/footbot_entity.cpp
