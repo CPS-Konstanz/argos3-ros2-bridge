@@ -1,0 +1,4 @@
+float32 velocity_left_wheel
+float32 velocity_right_wheel
+float32 covered_distance_left_wheel
+float32 covered_distance_right_wheel_velocity
