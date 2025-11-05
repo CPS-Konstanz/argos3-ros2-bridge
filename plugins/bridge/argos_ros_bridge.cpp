@@ -114,11 +114,11 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 		m_pcCamera 			= GetSensor < CCI_ColoredBlobOmnidirectionalCameraSensor>("colored_blob_omnidirectional_camera");
 		blobListPublisher_ 	= nodeHandle_ -> create_publisher<BlobList>(blobTopic.str(), 1);
 	}
-	if (HasSensor("turtlebot3_lidar")){
+	if (HasSensor("lidar")){
 		stringstream lidarTopic;
 		lidarTopic 			<< "/" << robot_id_ << "/lidarScan";
-		m_pcLidar 			= GetSensor < CCI_TurtleBot3LidarSensor>("turtlebot3_lidar");
-		lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarScan>(lidarTopic.str(), 1);
+		m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("lidar");
+		lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
 	}
 	if (HasSensor("differential_steering")){
 		stringstream wheelVelTopic;

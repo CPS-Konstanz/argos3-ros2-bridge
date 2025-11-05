@@ -55,9 +55,12 @@
 #include "argos3_ros2_bridge/msg/packet.hpp"
 #include "argos3_ros2_bridge/msg/position.hpp"
 #include "argos3_ros2_bridge/msg/blob_list.hpp"
+#include "argos3_ros2_bridge/msg/lidar_list.hpp"
 #include "argos3_ros2_bridge/msg/light_list.hpp"
 #include "argos3_ros2_bridge/msg/packet_list.hpp"
 #include "argos3_ros2_bridge/msg/proximity_list.hpp"
+#include "argos3_ros2_bridge/msg/wheel_velocities.hpp"
+
 
 
 using namespace argos;
@@ -85,7 +88,7 @@ class ArgosRosBridge : public CCI_Controller{
 		rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
 
 		// LiDAR sensor publisher
-		rclpp::Publisher<argos3_ros2_bridge::msg::LidarScan>::SharedPtr lidarPublisher_;
+		rclcpp::Publisher<argos3_ros2_bridge::msg::LidarList>::SharedPtr lidarPublisher_;
 		// Differential steering sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::WheelVelocities>::SharedPtr wheelVelocitiesPublisher_;
 
@@ -124,7 +127,9 @@ class ArgosRosBridge : public CCI_Controller{
 		/* Pointer to differential steering sensor */
 		CCI_DifferentialSteeringSensor* m_pcWheelsSensor;
 		/* Pointer to turtlebot3 lidar sensor */
-		CCI_TurtleBot3LidarSensor* m_pcLidar;
+		CCI_Turtlebot3LIDARSensor* m_pcLidar;
+		/* Pointer to turtlebot3 proximity sensor */
+		CCI_Turtlebot3ProximitySensor* m_pcTurtlebot3Proximity;
 
 		// The following constant values were copied from the argos source tree from
 		// the file src/plugins/robots/foot-bot/simulator/footbot_entity.cpp
