@@ -8,6 +8,7 @@ target_link_libraries(argos_ros_bridge
   ${ARGOS_LDFLAGS}
   ${rclcpp_LIBRARIES}
   /usr/local/lib/argos3/libargos3plugin_simulator_footbot.so
+  /usr/local/lib/argos3/libargos3plugin_simulator_turtlebot3.so
   /usr/local/lib/argos3/libargos3plugin_simulator_genericrobot.so
   /usr/local/lib/argos3/libargos3core_simulator.so)
   

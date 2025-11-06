@@ -114,10 +114,10 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 		m_pcCamera 			= GetSensor < CCI_ColoredBlobOmnidirectionalCameraSensor>("colored_blob_omnidirectional_camera");
 		blobListPublisher_ 	= nodeHandle_ -> create_publisher<BlobList>(blobTopic.str(), 1);
 	}
-	if (HasSensor("lidar")){
+	if (HasSensor("turtlebot3_lidar")){
 		stringstream lidarTopic;
-		lidarTopic 			<< "/" << robot_id_ << "/lidarScan";
-		m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("lidar");
+		lidarTopic 			<< "/" << robot_id_ << "/lidarList";
+		m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("turtlebot3_lidar");
 		lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
 	}
 	if (HasSensor("differential_steering")){
@@ -214,9 +214,26 @@ void ArgosRosBridge::ControlStep() {
 		lightListPublisher_ -> publish(lightList);
 	}
 	/***********************************
-	 * Get readings from proximity sensor
+	 * Get readings from footbot proximity sensor
 	 ***********************************/
 	if (HasSensor("footbot_proximity")){
+		const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
+		ProximityList proxList;
+		proxList.n = tProxReads.size();
+		for (size_t i = 0; i < proxList.n; ++i) {
+			Proximity prox;
+			prox.value = tProxReads[i].Value;
+			prox.angle = tProxReads[i].Angle.GetValue();
+			proxList.proximities.push_back(prox);
+
+		}
+
+		promixityListPublisher_ -> publish(proxList);
+	}
+	/***********************************
+	 * Get readings from turtlebot 3 proximity sensor
+	 ***********************************/
+	if (HasSensor("turtlebot3_proximity")){
 		const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
 		ProximityList proxList;
 		proxList.n = tProxReads.size();
@@ -305,6 +322,23 @@ void ArgosRosBridge::ControlStep() {
 
 		rabPublisher_ -> publish(packetList);
 	}
+
+	/**********************************************
+	 * Get readings from Turtlebot3 LiDAR sensor
+	 **********************************************/
+	if (HasSensor("turtlebot3_lidar")){
+		
+		LidarList lidarList;
+		lidarList.n = m_pcLidar->GetNumReadings();
+		double angle_increment = 360.0 / lidarList.n; // Assuming full 360-degree coverage
+		for (size_t i = 0; i < lidarList.n; ++i) {
+			Lidar lidar;
+			lidar.angle =  i * angle_increment; // angle in degrees
+			lidar.value = m_pcLidar->GetReading(i);
+			lidarList.lidars.push_back(lidar);	
+		}
+		lidarPublisher_ -> publish(lidarList);
+	}	
 
 	// If we haven't heard from the subscriber in a while, set the speed to zero.
 	if (stepsSinceCallback > stopWithoutSubscriberCount) {

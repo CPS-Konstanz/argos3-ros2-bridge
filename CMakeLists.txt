@@ -25,12 +25,15 @@ set(msg_files
   "msg/BlobList.msg"
   "msg/Proximity.msg"
   "msg/ProximityList.msg"
+  "msg/Lidar.msg"
+  "msg/LidarList.msg"
   "msg/Light.msg"
   "msg/LightList.msg"
   "msg/Position.msg"
   "msg/Packet.msg"
   "msg/PacketList.msg"
   "msg/Signal.msg"
+  "msg/WheelVelocities.msg"
   
 )
 
@@ -50,6 +53,6 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 ###########
 
 # Added for ARGoS
-#add_subdirectory(plugins)
+add_subdirectory(plugins)
 
 ament_package()

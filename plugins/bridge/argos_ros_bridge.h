@@ -50,6 +50,7 @@
  */
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "argos3_ros2_bridge/msg/led.hpp"
 #include "argos3_ros2_bridge/msg/packet.hpp"
