@@ -61,7 +61,7 @@
 #include "argos3_ros2_bridge/msg/packet_list.hpp"
 #include "argos3_ros2_bridge/msg/proximity_list.hpp"
 #include "argos3_ros2_bridge/msg/wheel_velocities.hpp"
-
+#include "sensor_msgs/msg/laser_scan.hpp"
 
 
 using namespace argos;
@@ -85,11 +85,15 @@ class ArgosRosBridge : public CCI_Controller{
 		rclcpp::Publisher<argos3_ros2_bridge::msg::BlobList>::SharedPtr blobListPublisher_;
 		// Position sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::Position>::SharedPtr positionPublisher_;
+		// Odometry publisher
+		rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometryPublisher_;
 		// Position sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
 
 		// LiDAR sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::LidarList>::SharedPtr lidarPublisher_;
+		// LiDAR sensor LaserScan publisher
+		rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr lidarScanPublisher_;
 		// Differential steering sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::WheelVelocities>::SharedPtr wheelVelocitiesPublisher_;
 
@@ -132,10 +136,9 @@ class ArgosRosBridge : public CCI_Controller{
 		/* Pointer to turtlebot3 proximity sensor */
 		CCI_Turtlebot3ProximitySensor* m_pcTurtlebot3Proximity;
 
-		// The following constant values were copied from the argos source tree from
-		// the file src/plugins/robots/foot-bot/simulator/footbot_entity.cpp
-		static constexpr Real HALF_BASELINE = 0.07f; // Half the distance between wheels
-		static constexpr Real WHEEL_RADIUS = 0.029112741f;
+		// Differential drive geometry defaults (foot-bot dimensions)
+		Real halfBaseline_ = 0.07f; // Half the distance between wheels (meters)
+		Real wheelRadius_ = 0.029112741f; // Wheel radius (meters)
 
 		/*
 		* The following variables are used as parameters for the

@@ -8,6 +8,7 @@
 
 /* Include the controller definition */
 #include "argos_ros_bridge.h"
+#include <argos3/core/utility/math/angles.h>
 using namespace std;
 using namespace argos3_ros2_bridge;
 using namespace argos3_ros2_bridge::msg;
@@ -42,6 +43,8 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	GetNodeAttributeOrDefault(t_node, "multiple_domains", multiple_domains_, false);
 	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 50);
 	GetNodeAttributeOrDefault(t_node, "ros_domain_id", domain_id_, 0);
+	GetNodeAttributeOrDefault(t_node, "half_baseline", halfBaseline_, halfBaseline_);
+	GetNodeAttributeOrDefault(t_node, "wheel_radius", wheelRadius_, wheelRadius_);
 
 
     // Calculate domain ID from robot ID
@@ -99,8 +102,11 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	if (HasSensor("positioning")){
 		stringstream positionTopic;
 		positionTopic 		<< "/" << robot_id_ << "/position";
+		stringstream odomTopic;
+		odomTopic			<< "/" << robot_id_ << "/odom";
 		m_pcPosition 		= GetSensor < CCI_PositioningSensor>("positioning");
 		positionPublisher_ 	= nodeHandle_ -> create_publisher<Position>(positionTopic.str(), 1);
+		odometryPublisher_	= nodeHandle_->create_publisher<nav_msgs::msg::Odometry>(odomTopic.str(), 1);
 	}
 	if (HasSensor("range_and_bearing")){
 		stringstream rabTopic;
@@ -117,8 +123,11 @@ void ArgosRosBridge::Init(TConfigurationNode& t_node){
 	if (HasSensor("turtlebot3_lidar")){
 		stringstream lidarTopic;
 		lidarTopic 			<< "/" << robot_id_ << "/lidarList";
+		stringstream lidarScanTopic;
+		lidarScanTopic		<< "/" << robot_id_ << "/scan";
 		m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("turtlebot3_lidar");
 		lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
+		lidarScanPublisher_	= nodeHandle_ -> create_publisher<sensor_msgs::msg::LaserScan>(lidarScanTopic.str(), 1);
 	}
 	if (HasSensor("differential_steering")){
 		stringstream wheelVelTopic;
@@ -284,6 +293,7 @@ void ArgosRosBridge::ControlStep() {
 	 * Same with the Quaternion
 	 **********************************************************************/
 	if (HasSensor("positioning")){
+		const auto now = nodeHandle_->now();
 		const CCI_PositioningSensor::SReading& tPosReads = m_pcPosition->GetReading();
 		Position position;
 
@@ -297,6 +307,27 @@ void ArgosRosBridge::ControlStep() {
 		position.orientation.z = tPosReads.Orientation.GetZ();
 
 		positionPublisher_ -> publish(position);
+
+		if (odometryPublisher_) {
+			nav_msgs::msg::Odometry odom;
+			odom.header.stamp = now;
+			odom.header.frame_id = robot_id_ + "/odom";
+			odom.child_frame_id = robot_id_ + "/base_link";
+
+			odom.pose.pose.position.x = position.position.x;
+			odom.pose.pose.position.y = position.position.y;
+			odom.pose.pose.position.z = position.position.z;
+			odom.pose.pose.orientation = position.orientation;
+
+			odom.twist.twist.linear.x = 0.0;
+			odom.twist.twist.linear.y = 0.0;
+			odom.twist.twist.linear.z = 0.0;
+			odom.twist.twist.angular.x = 0.0;
+			odom.twist.twist.angular.y = 0.0;
+			odom.twist.twist.angular.z = 0.0;
+
+			odometryPublisher_->publish(odom);
+		}
 	}
 
 	/*********************************************
@@ -327,18 +358,58 @@ void ArgosRosBridge::ControlStep() {
 	 * Get readings from Turtlebot3 LiDAR sensor
 	 **********************************************/
 	if (HasSensor("turtlebot3_lidar")){
-		
+		const auto now = nodeHandle_->now();
+		const std::string lidar_frame = robot_id_ + "/lidar";
+
 		LidarList lidarList;
+		lidarList.header.stamp = now;
+		lidarList.header.frame_id = lidar_frame;
 		lidarList.n = m_pcLidar->GetNumReadings();
-		double angle_increment = 360.0 / lidarList.n; // Assuming full 360-degree coverage
-		for (size_t i = 0; i < lidarList.n; ++i) {
-			Lidar lidar;
-			lidar.angle =  i * angle_increment; // angle in degrees
-			lidar.value = m_pcLidar->GetReading(i);
-			lidarList.lidars.push_back(lidar);	
+		const size_t lidar_count = static_cast<size_t>(lidarList.n);
+		if (lidar_count > 0) {
+			lidarList.lidars.reserve(lidar_count);
 		}
-		lidarPublisher_ -> publish(lidarList);
-	}	
+
+		sensor_msgs::msg::LaserScan laserScan;
+		laserScan.header = lidarList.header;
+		if (lidar_count > 0) {
+			const double angle_increment_rad = argos::CRadians::TWO_PI.GetValue() / static_cast<double>(lidar_count);
+			const double angle_increment_deg = 360.0 / static_cast<double>(lidar_count);
+			laserScan.angle_min = -argos::CRadians::PI.GetValue();
+			laserScan.angle_increment = angle_increment_rad;
+			laserScan.angle_max = laserScan.angle_min + static_cast<double>(lidar_count - 1) * angle_increment_rad;
+			laserScan.time_increment = 0.0;
+			laserScan.scan_time = 0.0;
+			laserScan.range_min = 0.12f;
+			laserScan.range_max = 3.5f;
+			laserScan.ranges.resize(lidar_count);
+			laserScan.intensities.assign(lidar_count, 0.0f);
+
+			for (size_t i = 0; i < lidar_count; ++i) {
+				Lidar lidar;
+				lidar.angle = static_cast<float>(i * angle_increment_deg); // angle in degrees
+				lidar.value = static_cast<float>(m_pcLidar->GetReading(i));
+				lidarList.lidars.push_back(lidar);
+
+				// Convert millimetres to metres for ROS LaserScan consumers
+				const float range_metres = static_cast<float>(lidar.value * 0.001f);
+				laserScan.ranges[i] = range_metres;
+			}
+		} else {
+			laserScan.angle_min = 0.0;
+			laserScan.angle_max = 0.0;
+			laserScan.angle_increment = 0.0;
+			laserScan.range_min = 0.0;
+			laserScan.range_max = 0.0;
+		}
+
+		if (lidarPublisher_) {
+			lidarPublisher_->publish(lidarList);
+		}
+		if (lidarScanPublisher_) {
+			lidarScanPublisher_->publish(laserScan);
+		}
+	}
 
 	// If we haven't heard from the subscriber in a while, set the speed to zero.
 	if (stepsSinceCallback > stopWithoutSubscriberCount) {
@@ -355,8 +426,8 @@ void ArgosRosBridge::ControlStep() {
 void ArgosRosBridge::cmdVelCallback(const Twist& twist) {
 	double v = twist.linear.x;		// Forward linear velocity
 	double omega = twist.angular.z; // Rotational (angular) velocity
-	double L = HALF_BASELINE * 2;	// Distance between wheels (wheelbase)
-	double R = WHEEL_RADIUS;		// Wheel radius
+	double L = halfBaseline_ * 2.0;	// Distance between wheels (wheelbase)
+	double R = wheelRadius_;		// Wheel radius
 
 	// Calculate left and right wheel speeds using differential drive kinematics
 	leftSpeed = (v - (L / 2) * omega) / R;

@@ -1,4 +1,6 @@
 find_package(argos3_ros2_bridge REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 add_library(argos_ros_bridge argos_ros_bridge.h argos_ros_bridge.cpp)
 
@@ -12,9 +14,9 @@ target_link_libraries(argos_ros_bridge
   /usr/local/lib/argos3/libargos3plugin_simulator_genericrobot.so
   /usr/local/lib/argos3/libargos3core_simulator.so)
   
-ament_export_dependencies(rosidl_default_runtime rclcpp std_msgs message_runtime collective_decision_making)
+ament_export_dependencies(rosidl_default_runtime rclcpp std_msgs nav_msgs sensor_msgs message_runtime collective_decision_making)
 
-ament_target_dependencies(argos_ros_bridge rclcpp geometry_msgs std_msgs ARGoS argos3_ros2_bridge)
+ament_target_dependencies(argos_ros_bridge rclcpp geometry_msgs std_msgs nav_msgs sensor_msgs ARGoS argos3_ros2_bridge)
 
 install(
     TARGETS argos_ros_bridge
@@ -23,4 +25,3 @@ install(
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION lib
 )
-
