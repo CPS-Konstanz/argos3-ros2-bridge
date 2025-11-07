@@ -75,6 +75,9 @@ class ArgosRosBridge : public CCI_Controller{
 		int nodes_per_domain_;
 		int domain_id_;
 		std::shared_ptr<rclcpp::Node> nodeHandle_;  // Per-instance node
+		bool enable_time_synchronization;
+		// Maximum number of attempts for synchronization
+		int max_attempts;
 		static rclcpp::Context::SharedPtr global_context_;  // Single shared context
 		/************************************
 		 * Publishers
@@ -91,6 +94,8 @@ class ArgosRosBridge : public CCI_Controller{
 		rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometryPublisher_;
 		// Position sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
+		// argos clock publisher
+		rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clockPublisher_;
 
 		// LiDAR sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::LidarList>::SharedPtr lidarPublisher_;
@@ -108,6 +113,8 @@ class ArgosRosBridge : public CCI_Controller{
 		rclcpp::Subscription<argos3_ros2_bridge::msg::Packet>::SharedPtr cmdRabSubscriber_;
 		// Subscriber for cmd_led (Led) topic
 		rclcpp::Subscription<argos3_ros2_bridge::msg::Led>::SharedPtr cmdLedSubscriber_;
+		// Subscriber for ros2 clock topic
+		rclcpp::Subscription<rosgraph_msgs::msg::Clock>::SharedPtr clockSubscriber_;
 
 
 
@@ -160,6 +167,7 @@ class ArgosRosBridge : public CCI_Controller{
 		// Most recent left and right wheel speeds, converted from the ROS twist
 		// message.
 		Real leftSpeed, rightSpeed;
+		rclcpp::Time ros2_time_;
 
 
     public:
@@ -197,6 +205,10 @@ class ArgosRosBridge : public CCI_Controller{
 		 * The callback method for getting new commanded led color on the cmd_led topic.
 		 */
 		void cmdLedCallback(const argos3_ros2_bridge::msg::Led& ledColor);
+		/*
+		* The callback method for getting new ros time on the ros2_clock topic.
+		*/
+		void clockCallback(const rosgraph_msgs::msg::Clock::SharedPtr msg);
 
 		static bool ros_initialized;
 };
