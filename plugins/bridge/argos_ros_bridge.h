@@ -2,7 +2,7 @@
  * argos_ros_bridge.h
  *
  * Created on: 28 Jan 2025
- *  
+ *
  */
 
 #ifndef ARGOS_ROS_BRIDGE_H_
@@ -14,6 +14,9 @@
 #include <iostream>
 #include <sstream>
 #include <cuchar>
+
+#include <argos3/core/simulator/simulator.h>
+#include <argos3/core/simulator/space/space.h>
 
 /* Definition of the CCI_Controller class. */
 #include <argos3/core/control_interface/ci_controller.h>
@@ -44,7 +47,6 @@
 /* Definition of the omnidirectional camera sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
 
-
 /**
  * ROS2 Imports
  */
@@ -52,6 +54,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "rosgraph_msgs/msg/clock.hpp"
 #include "argos3_ros2_bridge/msg/led.hpp"
 #include "argos3_ros2_bridge/msg/packet.hpp"
 #include "argos3_ros2_bridge/msg/position.hpp"
@@ -62,7 +65,6 @@
 #include "argos3_ros2_bridge/msg/proximity_list.hpp"
 #include "argos3_ros2_bridge/msg/wheel_velocities.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
-
 
 using namespace argos;
 using namespace std::chrono_literals;
