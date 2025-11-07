@@ -14,20 +14,24 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 
-# ===== Message list =====
+
 set(msg_files
   "msg/Led.msg"
   "msg/Blob.msg"
   "msg/BlobList.msg"
   "msg/Proximity.msg"
   "msg/ProximityList.msg"
+  "msg/Lidar.msg"
+  "msg/LidarList.msg"
   "msg/Light.msg"
   "msg/LightList.msg"
   "msg/Position.msg"
   "msg/Packet.msg"
   "msg/PacketList.msg"
   "msg/Signal.msg"
+  "msg/WheelVelocities.msg"
 )
 
 # ===== Generate interface=====
@@ -38,6 +42,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
 ament_export_dependencies(rosidl_default_runtime)
 
+# Added for ARGoS
 add_subdirectory(plugins)
 
 ament_package()

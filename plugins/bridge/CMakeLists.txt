@@ -5,6 +5,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 find_package(ARGoS REQUIRED)
 find_package(GSL REQUIRED)
@@ -22,6 +24,8 @@ if(COMMAND rosidl_get_typesupport_target)
 endif()
 
 find_library(ARGOS_CORE                    NAMES argos3core_simulator
+             HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
+find_library(ARGOS_PLUGIN_SIM_TURTLEBOT3     NAMES argos3plugin_simulator_turtlebot3
              HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
 find_library(ARGOS_PLUGIN_SIM_FOOTBOT     NAMES argos3plugin_simulator_footbot
              HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
@@ -48,11 +52,12 @@ endif()
 target_link_libraries(argos_ros_bridge
   ${cpp_typesupport_target}
   ${ARGOS_CORE}
+  ${ARGOS_PLUGIN_SIM_TURTLEBOT3}
   ${ARGOS_PLUGIN_SIM_FOOTBOT}
   ${ARGOS_PLUGIN_SIM_GENERICROBOT}
 )
 ament_target_dependencies(argos_ros_bridge
-  rclcpp std_msgs geometry_msgs
+  rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs
 )
 
 install(TARGETS argos_ros_bridge
