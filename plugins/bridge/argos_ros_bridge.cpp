@@ -19,13 +19,16 @@ bool ArgosRosBridge::ros_initialized = false;
 rclcpp::Context::SharedPtr ArgosRosBridge::global_context_ = nullptr;
 
 ArgosRosBridge::ArgosRosBridge() : robot_id_(),
-								   multiple_domains_(false),
-								   nodes_per_domain_(0),
-								   domain_id_(0),
-								   enable_time_synchronization(false),
-								   max_attempts(10),
-								   nodeHandle_(nullptr),
-								   // --- publishers ---
+									   multiple_domains_(false),
+									   nodes_per_domain_(0),
+									   domain_id_(0),
+									   context_(nullptr),
+									   nodeHandle_(nullptr),
+									   enable_time_synchronization(true),
+									   max_attempts(10),
+									   lockstep_control_(false),
+									   command_timeout_(std::chrono::milliseconds(50)),
+									   // --- publishers ---
 								   lightListPublisher_(nullptr),
 								   promixityListPublisher_(nullptr),
 								   blobListPublisher_(nullptr),
@@ -49,9 +52,16 @@ ArgosRosBridge::ArgosRosBridge() : robot_id_(),
 								   m_pcRABA(nullptr),
 								   // --- params / counters ---
 								   stopWithoutSubscriberCount(10),
-								   stepsSinceCallback(0),
-								   leftSpeed(0.0),
-								   rightSpeed(0.0)
+									   stepsSinceCallback(0),
+									   leftSpeed(0.0),
+									   rightSpeed(0.0),
+									   command_ready_(false),
+									   current_step_index_(0),
+									   waiting_command_step_(0),
+									   last_command_step_index_(0),
+									   last_wait_duration_us_(0),
+									   last_command_latency_steps_(0),
+									   stale_command_ticks_(0)
 {
 }
 
@@ -65,8 +75,13 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 	GetNodeAttributeOrDefault(t_node, "multiple_domains", multiple_domains_, false);
 	GetNodeAttributeOrDefault(t_node, "nodes_per_domain", nodes_per_domain_, 50);
 	GetNodeAttributeOrDefault(t_node, "ros_domain_id", domain_id_, 0);
+	GetNodeAttributeOrDefault(t_node, "enable_time_synchronization", enable_time_synchronization, enable_time_synchronization);
 	GetNodeAttributeOrDefault(t_node, "half_baseline", halfBaseline_, halfBaseline_);
 	GetNodeAttributeOrDefault(t_node, "wheel_radius", wheelRadius_, wheelRadius_);
+	GetNodeAttributeOrDefault(t_node, "lockstep_control", lockstep_control_, lockstep_control_);
+	argos::UInt32 timeout_ms = static_cast<argos::UInt32>(command_timeout_.count());
+	GetNodeAttributeOrDefault(t_node, "command_timeout_ms", timeout_ms, timeout_ms);
+	command_timeout_ = std::chrono::milliseconds(timeout_ms);
 
 	// Calculate domain ID from robot ID
 	if (multiple_domains_)
@@ -94,25 +109,42 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 	}
 
 	// Create a context with the domain ID
-	auto context = std::make_shared<rclcpp::Context>();
+	context_ = std::make_shared<rclcpp::Context>();
 	rclcpp::InitOptions init_options;
 	init_options.set_domain_id(domain_id_);
 	init_options.auto_initialize_logging(false); // Prevent multiple logging inits
-	context->init(0, nullptr, init_options);
+	context_->init(0, nullptr, init_options);
 
 	// Create node with unique name
 	std::string node_name = "argos_ros_node_" + robot_id_;
-	nodeHandle_ = std::make_shared<rclcpp::Node>(node_name, rclcpp::NodeOptions().context(context));
+	nodeHandle_ = std::make_shared<rclcpp::Node>(node_name, rclcpp::NodeOptions().context(context_));
 
 	// Retrieve and print the actual domain ID
-	auto actual_domain_id = context->get_domain_id();
+	auto actual_domain_id = context_->get_domain_id();
 	RCLCPP_INFO(nodeHandle_->get_logger(), "Running on ROS_DOMAIN_ID: %zu", actual_domain_id);
+
+	rclcpp::ExecutorOptions exec_options;
+	exec_options.context = context_;
+	executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(exec_options);
+	executor_->add_node(nodeHandle_);
+	executor_thread_ = std::thread([this]() {
+		try
+		{
+			executor_->spin();
+		}
+		catch (const std::exception &ex)
+		{
+			RCLCPP_ERROR(rclcpp::get_logger("argos"), "Executor for %s exited: %s", robot_id_.c_str(), ex.what());
+		}
+	});
 
 	/********************************
 	 * For clock
 	 ********************************/
 	if (enable_time_synchronization)
 	{
+		// print info
+		RCLCPP_INFO(nodeHandle_->get_logger(), "Enabling time synchronization for robot %s", robot_id_.c_str());
 		// 1. Create the topics to publish argos3 clock
 		std::stringstream argosClockTopic;
 		argosClockTopic << "/" << robot_id_ << "/argos3_clock";
@@ -254,8 +286,13 @@ bool blobComparator(Blob a, Blob b)
 
 void ArgosRosBridge::ControlStep()
 {
-
-	rclcpp::spin_some(nodeHandle_);
+	uint64_t step_index = current_step_index_.fetch_add(1u) + 1u;
+	if (lockstep_control_)
+	{
+		std::lock_guard<std::mutex> lock(command_mutex_);
+		waiting_command_step_ = step_index;
+		command_ready_ = false;
+	}
 
 	/*********************************
 	 * Publish clock
@@ -317,8 +354,9 @@ void ArgosRosBridge::ControlStep()
 	if (HasSensor("turtlebot3_proximity")){
 		const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
 		ProximityList proxList;
-		proxList.n = tProxReads.size();
-		for (size_t i = 0; i < proxList.n; ++i) {
+		const size_t prox_count = tProxReads.size();
+		proxList.n = static_cast<int>(prox_count);
+		for (size_t i = 0; i < prox_count; ++i) {
 			Proximity prox;
 			prox.value = tProxReads[i].Value;
 			prox.angle = tProxReads[i].Angle.GetValue();
@@ -484,68 +522,87 @@ void ArgosRosBridge::ControlStep()
 		}
 	}
 
-	// If we haven't heard from the subscriber in a while, set the speed to zero.
-	if (stepsSinceCallback > stopWithoutSubscriberCount)
+	if (lockstep_control_)
 	{
-		leftSpeed = 0;
-		rightSpeed = 0;
+		const auto wait_start = std::chrono::steady_clock::now();
+		std::unique_lock<std::mutex> lock(command_mutex_);
+		const bool received = command_cv_.wait_for(
+			lock,
+			command_timeout_,
+			[this, step_index]()
+			{
+				return command_ready_ && last_command_step_index_ >= step_index;
+			});
+		const auto wait_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::steady_clock::now() - wait_start);
+		last_wait_duration_us_.store(static_cast<uint64_t>(wait_duration.count()));
+		if (!received)
+		{
+			RCLCPP_WARN_ONCE(
+				nodeHandle_->get_logger(),
+				"[%s] Lockstep timeout waiting for cmd_vel (%lld ms); reusing previous command",
+				robot_id_.c_str(),
+				static_cast<long long>(command_timeout_.count()));
+		}
 	}
 	else
 	{
-		stepsSinceCallback++;
+		last_wait_duration_us_.store(0);
+	}
+
+	const uint64_t command_step = last_command_step_index_;
+	const uint64_t latency_steps = step_index > command_step ? (step_index - command_step) : 0;
+	last_command_latency_steps_.store(latency_steps);
+	if (latency_steps > 0)
+	{
+		stale_command_ticks_.fetch_add(1);
+	}
+	else
+	{
+		stale_command_ticks_.store(0);
+	}
+
+	Real applied_left = 0.0f;
+	Real applied_right = 0.0f;
+	{
+		std::lock_guard<std::mutex> lock(command_mutex_);
+		if (stepsSinceCallback.load() > stopWithoutSubscriberCount)
+		{
+			leftSpeed = 0.0f;
+			rightSpeed = 0.0f;
+		}
+		else
+		{
+			stepsSinceCallback.fetch_add(1);
+		}
+		applied_left = leftSpeed;
+		applied_right = rightSpeed;
 	}
 	if (HasActuator("differential_steering"))
 	{
-		m_pcWheels->SetLinearVelocity(leftSpeed, rightSpeed);
+		m_pcWheels->SetLinearVelocity(applied_left, applied_right);
 	}
 
-	/*********************************************
-	 * Time synchronization
-	 *********************************************/
-	if (enable_time_synchronization)
-	{
-		const auto &sim = argos::CSimulator::GetInstance();
-		argos::CPhysicsEngine &engine = sim.GetPhysicsEngine("dyn2d");
-		double argos_time_sec =
-			sim.GetSpace().GetSimulationClock() * engine.GetPhysicsClockTick();
-
-		rclcpp::Time argos_time(static_cast<int64_t>(argos_time_sec * 1e9));
-
-		double tolerance = 1e-9;
-
-		for (int attempt = 0; attempt < max_attempts; ++attempt)
-		{
-			// Compute the time difference between ROS2 clock and ARGoS simulation time
-			double diff = std::abs(ros2_time_.seconds() - argos_time.seconds());
-
-			// If within tolerance → clocks are synchronized
-			if (diff <= tolerance)
-			{
-				break;
-			}
-			// Sleep briefly before checking again
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-			if (attempt == max_attempts - 1)
-			{
-				std::cout << "Time synchronization failed after " << max_attempts << ", last diff = " << diff << ". Please increase the max_attempts." << std::endl;
-			}
-		}
-	}
 }
 
 void ArgosRosBridge::cmdVelCallback(const Twist &twist)
 {
-	double v = twist.linear.x;		// Forward linear velocity
-	double omega = twist.angular.z; // Rotational (angular) velocity
-	double L = halfBaseline_ * 2.0;	// Distance between wheels (wheelbase)
-	double R = wheelRadius_;		// Wheel radius
+	const double v = twist.linear.x;		// Forward linear velocity
+	const double omega = twist.angular.z; // Rotational (angular) velocity
+	const double L = halfBaseline_ * 2.0; // Distance between wheels (wheelbase)
+	const double R = wheelRadius_;			// Wheel radius
 
-	// Calculate left and right wheel speeds using differential drive kinematics
-	leftSpeed = (v - (L / 2) * omega) / R;
-	rightSpeed = (v + (L / 2) * omega) / R;
-
-	stepsSinceCallback = 0;
+	{
+		std::lock_guard<std::mutex> lock(command_mutex_);
+		leftSpeed = (v - (L / 2.0) * omega) / R;
+		rightSpeed = (v + (L / 2.0) * omega) / R;
+		stepsSinceCallback.store(0);
+		const uint64_t awaited_step = lockstep_control_ ? waiting_command_step_ : current_step_index_.load();
+		last_command_step_index_ = awaited_step;
+		command_ready_ = true;
+		last_command_time_ = nodeHandle_->now();
+	}
+	command_cv_.notify_all();
 }
 
 void ArgosRosBridge::cmdRabCallback(const Packet &packet)
@@ -620,10 +677,52 @@ void ArgosRosBridge::clockCallback(const rosgraph_msgs::msg::Clock::SharedPtr ms
 	ros2_time_ = msg->clock;
 }
 
+uint64_t ArgosRosBridge::GetCurrentStepIndex() const
+{
+	return current_step_index_.load();
+}
+
+uint64_t ArgosRosBridge::GetLastCommandStepIndex() const
+{
+	return last_command_step_index_;
+}
+
+double ArgosRosBridge::GetLastWaitDurationMs() const
+{
+	return static_cast<double>(last_wait_duration_us_.load()) / 1000.0;
+}
+
+uint64_t ArgosRosBridge::GetLastCommandLatencySteps() const
+{
+	return last_command_latency_steps_.load();
+}
+
+uint64_t ArgosRosBridge::GetStaleCommandTicks() const
+{
+	return stale_command_ticks_.load();
+}
+
 void ArgosRosBridge::Destroy()
 {
-
+	if (executor_)
+	{
+		executor_->cancel();
+	}
+	if (executor_thread_.joinable())
+	{
+		executor_thread_.join();
+	}
+	if (executor_ && nodeHandle_)
+	{
+		executor_->remove_node(nodeHandle_);
+	}
+	executor_.reset();
 	nodeHandle_.reset(); // Destroy node first
+	if (context_)
+	{
+		context_->shutdown("argos_ros_bridge destroy");
+		context_.reset();
+	}
 }
 /*
  * This statement notifies ARGoS of the existence of the controller.

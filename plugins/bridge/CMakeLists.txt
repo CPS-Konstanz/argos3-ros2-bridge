@@ -35,6 +35,7 @@ find_library(ARGOS_PLUGIN_SIM_GENERICROBOT NAMES argos3plugin_simulator_genericr
 # ===== Plugin 1: Controller (.so) =====
 add_library(argos_ros_bridge SHARED
   ${LOCAL_INCLUDE_DIR}/argos_ros_bridge.cpp
+  ${LOCAL_INCLUDE_DIR}/sync_metrics_loop_functions.cpp
 )
 
 target_include_directories(argos_ros_bridge

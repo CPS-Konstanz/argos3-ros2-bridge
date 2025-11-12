@@ -9,8 +9,12 @@
 #define ARGOS_ROS_BRIDGE_H_
 
 #include <string>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <iostream>
 #include <sstream>
 #include <cuchar>
@@ -51,6 +55,7 @@
  * ROS2 Imports
  */
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/executors/single_threaded_executor.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -74,11 +79,16 @@ class ArgosRosBridge : public CCI_Controller{
 		bool multiple_domains_;
 		int nodes_per_domain_;
 		int domain_id_;
+		rclcpp::Context::SharedPtr context_;
 		std::shared_ptr<rclcpp::Node> nodeHandle_;  // Per-instance node
 		bool enable_time_synchronization;
 		// Maximum number of attempts for synchronization
 		int max_attempts;
+		bool lockstep_control_;
+		std::chrono::milliseconds command_timeout_;
 		static rclcpp::Context::SharedPtr global_context_;  // Single shared context
+		std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
+		std::thread executor_thread_;
 		/************************************
 		 * Publishers
 		 ***********************************/
@@ -162,11 +172,21 @@ class ArgosRosBridge : public CCI_Controller{
 		int stopWithoutSubscriberCount;
 
 		// The number of time steps since the last callback.
-		int stepsSinceCallback;
+		std::atomic<int> stepsSinceCallback;
 
 		// Most recent left and right wheel speeds, converted from the ROS twist
 		// message.
 		Real leftSpeed, rightSpeed;
+		std::mutex command_mutex_;
+		std::condition_variable command_cv_;
+		bool command_ready_;
+		std::atomic<uint64_t> current_step_index_;
+		uint64_t waiting_command_step_;
+		uint64_t last_command_step_index_;
+		rclcpp::Time last_command_time_;
+		std::atomic<uint64_t> last_wait_duration_us_;
+		std::atomic<uint64_t> last_command_latency_steps_;
+		std::atomic<uint64_t> stale_command_ticks_;
 		rclcpp::Time ros2_time_;
 
 
@@ -211,5 +231,12 @@ class ArgosRosBridge : public CCI_Controller{
 		void clockCallback(const rosgraph_msgs::msg::Clock::SharedPtr msg);
 
 		static bool ros_initialized;
+		uint64_t GetCurrentStepIndex() const;
+		uint64_t GetLastCommandStepIndex() const;
+		double GetLastWaitDurationMs() const;
+		uint64_t GetLastCommandLatencySteps() const;
+		uint64_t GetStaleCommandTicks() const;
+		bool IsLockstepControlEnabled() const { return lockstep_control_; }
+		double GetCommandTimeoutMs() const { return static_cast<double>(command_timeout_.count()); }
 };
 #endif /* ARGOS_ROS_BRIDGE_H_ */
