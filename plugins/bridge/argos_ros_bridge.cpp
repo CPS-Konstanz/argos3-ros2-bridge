@@ -29,29 +29,29 @@ ArgosRosBridge::ArgosRosBridge() : robot_id_(),
 									   lockstep_control_(false),
 									   command_timeout_(std::chrono::milliseconds(50)),
 									   // --- publishers ---
-								   lightListPublisher_(nullptr),
-								   promixityListPublisher_(nullptr),
-								   blobListPublisher_(nullptr),
-								   positionPublisher_(nullptr),
-								   rabPublisher_(nullptr),
-								   clockPublisher_(nullptr),
-								   // --- subscribers ---
-								   cmdVelSubscriber_(nullptr),
-								   cmdRabSubscriber_(nullptr),
-								   cmdLedSubscriber_(nullptr),
-								   // --- timer ---
-								   timer_(nullptr),
-								   // --- actuators / sensors ---
-								   m_pcWheels(nullptr),
-								   m_pcLight(nullptr),
-								   m_pcLEDs(nullptr),
-								   m_pcCamera(nullptr),
-								   m_pcProximity(nullptr),
-								   m_pcPosition(nullptr),
-								   m_pcRABS(nullptr),
-								   m_pcRABA(nullptr),
-								   // --- params / counters ---
-								   stopWithoutSubscriberCount(10),
+									lightListPublisher_(nullptr),
+									promixityListPublisher_(nullptr),
+									blobListPublisher_(nullptr),
+									positionPublisher_(nullptr),
+									rabPublisher_(nullptr),
+									clockPublisher_(nullptr),
+									// --- subscribers ---
+									cmdVelSubscriber_(nullptr),
+									cmdRabSubscriber_(nullptr),
+									cmdLedSubscriber_(nullptr),
+									// --- timer ---
+									timer_(nullptr),
+									// --- actuators / sensors ---
+									m_pcWheels(nullptr),
+									m_pcLight(nullptr),
+									m_pcLEDs(nullptr),
+									m_pcCamera(nullptr),
+									m_pcProximity(nullptr),
+									m_pcPosition(nullptr),
+									m_pcRABS(nullptr),
+									m_pcRABA(nullptr),
+									// --- params / counters ---
+									stopWithoutSubscriberCount(10),
 									   stepsSinceCallback(0),
 									   leftSpeed(0.0),
 									   rightSpeed(0.0),
@@ -209,6 +209,28 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 		m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("turtlebot3_lidar");
 		lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
 		lidarScanPublisher_	= nodeHandle_ -> create_publisher<sensor_msgs::msg::LaserScan>(lidarScanTopic.str(), 1);
+		
+		/********************* Publish static TF: base_link -> lidar *********************/
+		static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(nodeHandle_);
+
+		geometry_msgs::msg::TransformStamped tf;
+		tf.header.stamp = nodeHandle_->now();
+		tf.header.frame_id = robot_id_ + "/base_link";   // Parent frame
+		tf.child_frame_id = robot_id_ + "/lidar";        // Child frame (LiDAR frame)
+	
+		// LiDAR position relative to base_link
+		tf.transform.translation.x = -0.064;
+		tf.transform.translation.y = 0.0;
+		tf.transform.translation.z = 0.122;
+	
+		// LiDAR orientation relative to base_link
+		tf.transform.rotation.x = 0.0;
+		tf.transform.rotation.y = 0.0;
+		tf.transform.rotation.z = 0.0;
+		tf.transform.rotation.w = 1.0;
+	
+		// Publish the static transform once
+		static_tf_broadcaster_->sendTransform(tf);
 	}
 	if (HasSensor("differential_steering")){
 		stringstream wheelVelTopic;

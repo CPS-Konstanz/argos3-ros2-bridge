@@ -7,6 +7,9 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 find_package(ARGoS REQUIRED)
 find_package(GSL REQUIRED)
@@ -58,7 +61,7 @@ target_link_libraries(argos_ros_bridge
   ${ARGOS_PLUGIN_SIM_GENERICROBOT}
 )
 ament_target_dependencies(argos_ros_bridge
-  rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs
+  rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs tf2_geometry_msgs tf2_ros
 )
 
 install(TARGETS argos_ros_bridge

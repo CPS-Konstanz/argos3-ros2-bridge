@@ -70,6 +70,8 @@
 #include "argos3_ros2_bridge/msg/proximity_list.hpp"
 #include "argos3_ros2_bridge/msg/wheel_velocities.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 using namespace argos;
 using namespace std::chrono_literals;
@@ -113,7 +115,8 @@ class ArgosRosBridge : public CCI_Controller{
 		rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr lidarScanPublisher_;
 		// Differential steering sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::WheelVelocities>::SharedPtr wheelVelocitiesPublisher_;
-
+		//static tf publisher
+		std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 		/************************************
 		 * Subscribers
 		 ***********************************/
