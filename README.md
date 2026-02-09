@@ -39,7 +39,7 @@ sudo apt update && sudo apt install -y \
   ros-$ROS_DISTRO-tf2-geometry-msgs \
   libgsl-dev \
   liblua5.3-dev lua5.3
-
+```
 
 ### Compiling the Code
 <!-- #### Step 1: Build Custom Interfaces
