@@ -33,13 +33,12 @@ find_library(ARGOS_PLUGIN_SIM_TURTLEBOT3
              NAMES argos3plugin_simulator_turtlebot3
              HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
 
-if(ARGOS_PLUGIN_SIM_TURTLEBOT3)
-    message(STATUS "Found TurtleBot3 plugin: ${ARGOS_PLUGIN_SIM_TURTLEBOT3}")
-    add_definitions(-DHAVE_TURTLEBOT3)  
+if(NOT ARGOS_PLUGIN_SIM_TURTLEBOT3 OR ARGOS_PLUGIN_SIM_TURTLEBOT3 STREQUAL "ARGOS_PLUGIN_SIM_TURTLEBOT3-NOTFOUND")
+    message(WARNING "TurtleBot3 plugin not found, compiling bridge without it")
 else()
-    message(WARNING "TurtleBot3 plugin not found, bridge will compile without it")
+    message(STATUS "Found TurtleBot3 plugin: ${ARGOS_PLUGIN_SIM_TURTLEBOT3}")
+    add_definitions(-DHAVE_TURTLEBOT3)
 endif()
-
 
 find_library(ARGOS_PLUGIN_SIM_FOOTBOT     NAMES argos3plugin_simulator_footbot
              HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
@@ -75,8 +74,6 @@ set(ARGS_LIBS
 if(ARGOS_PLUGIN_SIM_TURTLEBOT3)
     list(APPEND ARGS_LIBS ${ARGOS_PLUGIN_SIM_TURTLEBOT3})
     add_definitions(-DHAVE_TURTLEBOT3)  
-else()
-    message(WARNING "TurtleBot3 plugin not found, compiling bridge without it")
 endif()
 
 
