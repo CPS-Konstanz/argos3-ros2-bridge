@@ -36,20 +36,24 @@
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
 /* Definition of the range-and-bearing actuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
-/* Definition of the turtlebot3 lidar sensor*/
-#include <argos3/plugins/robots/turtlebot3/control_interface/ci_turtlebot3_lidar_sensor.h>
 /* Definition of the differential steering sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_sensor.h>
 /* Definition of the differential steering actuator */
 #include <argos3/plugins/robots/generic/control_interface/ci_differential_steering_actuator.h>
-/* Definition of the turtlebot3 proximity sensor */
-#include <argos3/plugins/robots/turtlebot3/control_interface/ci_turtlebot3_proximity_sensor.h>
 /* Definition of the distance scanner sensor */
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_distance_scanner_sensor.h>
 /* Definition of the perspective camera camera sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_perspective_camera_sensor.h>
 /* Definition of the omnidirectional camera sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
+
+#ifdef HAVE_TURTLEBOT3
+/* Definition of the turtlebot3 lidar sensor*/
+#include <argos3/plugins/robots/turtlebot3/control_interface/ci_turtlebot3_lidar_sensor.h>
+/* Definition of the turtlebot3 proximity sensor */
+#include <argos3/plugins/robots/turtlebot3/control_interface/ci_turtlebot3_proximity_sensor.h>
+#endif
+
 
 /**
  * ROS2 Imports
@@ -70,6 +74,8 @@
 #include "argos3_ros2_bridge/msg/proximity_list.hpp"
 #include "argos3_ros2_bridge/msg/wheel_velocities.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 using namespace argos;
 using namespace std::chrono_literals;
@@ -113,7 +119,8 @@ class ArgosRosBridge : public CCI_Controller{
 		rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr lidarScanPublisher_;
 		// Differential steering sensor publisher
 		rclcpp::Publisher<argos3_ros2_bridge::msg::WheelVelocities>::SharedPtr wheelVelocitiesPublisher_;
-
+		//static tf publisher
+		std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 		/************************************
 		 * Subscribers
 		 ***********************************/
@@ -150,10 +157,13 @@ class ArgosRosBridge : public CCI_Controller{
 
 		/* Pointer to differential steering sensor */
 		CCI_DifferentialSteeringSensor* m_pcWheelsSensor;
-		/* Pointer to turtlebot3 lidar sensor */
-		CCI_Turtlebot3LIDARSensor* m_pcLidar;
-		/* Pointer to turtlebot3 proximity sensor */
-		CCI_Turtlebot3ProximitySensor* m_pcTurtlebot3Proximity;
+		
+		#ifdef HAVE_TURTLEBOT3
+			/* Pointer to turtlebot3 lidar sensor */
+			CCI_Turtlebot3LIDARSensor* m_pcLidar;
+			/* Pointer to turtlebot3 proximity sensor */
+			CCI_Turtlebot3ProximitySensor* m_pcTurtlebot3Proximity;
+		#endif
 
 		// Differential drive geometry defaults (foot-bot dimensions)
 		Real halfBaseline_ = 0.07f; // Half the distance between wheels (meters)

@@ -21,8 +21,25 @@ Once downloaded, ensure your file structure looks like:
 ## Compiling ARGoS3-ROS2-Bridge
 
 ### Requirements
-- **ROS2 Humble** must be installed and sourced
+- **ROS2 Humble/Jazzy** must be installed and sourced
 - **ARGoS3** must be installed
+- Install required packages for the bridge:
+
+```bash
+source /opt/ros/$ROS_DISTRO/setup.bash
+sudo apt update && sudo apt install -y \
+  ros-$ROS_DISTRO-ament-cmake \
+  ros-$ROS_DISTRO-rclcpp \
+  ros-$ROS_DISTRO-std-msgs \
+  ros-$ROS_DISTRO-geometry-msgs \
+  ros-$ROS_DISTRO-sensor-msgs \
+  ros-$ROS_DISTRO-nav-msgs \
+  ros-$ROS_DISTRO-tf2 \
+  ros-$ROS_DISTRO-tf2-ros \
+  ros-$ROS_DISTRO-tf2-geometry-msgs \
+  libgsl-dev \
+  liblua5.3-dev lua5.3
+```
 
 ### Compiling the Code
 <!-- #### Step 1: Build Custom Interfaces

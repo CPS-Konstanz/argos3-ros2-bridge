@@ -29,29 +29,29 @@ ArgosRosBridge::ArgosRosBridge() : robot_id_(),
 									   lockstep_control_(false),
 									   command_timeout_(std::chrono::milliseconds(50)),
 									   // --- publishers ---
-								   lightListPublisher_(nullptr),
-								   promixityListPublisher_(nullptr),
-								   blobListPublisher_(nullptr),
-								   positionPublisher_(nullptr),
-								   rabPublisher_(nullptr),
-								   clockPublisher_(nullptr),
-								   // --- subscribers ---
-								   cmdVelSubscriber_(nullptr),
-								   cmdRabSubscriber_(nullptr),
-								   cmdLedSubscriber_(nullptr),
-								   // --- timer ---
-								   timer_(nullptr),
-								   // --- actuators / sensors ---
-								   m_pcWheels(nullptr),
-								   m_pcLight(nullptr),
-								   m_pcLEDs(nullptr),
-								   m_pcCamera(nullptr),
-								   m_pcProximity(nullptr),
-								   m_pcPosition(nullptr),
-								   m_pcRABS(nullptr),
-								   m_pcRABA(nullptr),
-								   // --- params / counters ---
-								   stopWithoutSubscriberCount(10),
+									lightListPublisher_(nullptr),
+									promixityListPublisher_(nullptr),
+									blobListPublisher_(nullptr),
+									positionPublisher_(nullptr),
+									rabPublisher_(nullptr),
+									clockPublisher_(nullptr),
+									// --- subscribers ---
+									cmdVelSubscriber_(nullptr),
+									cmdRabSubscriber_(nullptr),
+									cmdLedSubscriber_(nullptr),
+									// --- timer ---
+									timer_(nullptr),
+									// --- actuators / sensors ---
+									m_pcWheels(nullptr),
+									m_pcLight(nullptr),
+									m_pcLEDs(nullptr),
+									m_pcCamera(nullptr),
+									m_pcProximity(nullptr),
+									m_pcPosition(nullptr),
+									m_pcRABS(nullptr),
+									m_pcRABA(nullptr),
+									// --- params / counters ---
+									stopWithoutSubscriberCount(10),
 									   stepsSinceCallback(0),
 									   leftSpeed(0.0),
 									   rightSpeed(0.0),
@@ -201,15 +201,39 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 		m_pcCamera = GetSensor<CCI_ColoredBlobOmnidirectionalCameraSensor>("colored_blob_omnidirectional_camera");
 		blobListPublisher_ = nodeHandle_->create_publisher<BlobList>(blobTopic.str(), 1);
 	}
-	if (HasSensor("turtlebot3_lidar")){
-		stringstream lidarTopic;
-		lidarTopic 			<< "/" << robot_id_ << "/lidarList";
-		stringstream lidarScanTopic;
-		lidarScanTopic		<< "/" << robot_id_ << "/scan";
-		m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("turtlebot3_lidar");
-		lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
-		lidarScanPublisher_	= nodeHandle_ -> create_publisher<sensor_msgs::msg::LaserScan>(lidarScanTopic.str(), 1);
-	}
+	#ifdef HAVE_TURTLEBOT3
+		if (HasSensor("turtlebot3_lidar")){
+			stringstream lidarTopic;
+			lidarTopic 			<< "/" << robot_id_ << "/lidarList";
+			stringstream lidarScanTopic;
+			lidarScanTopic		<< "/" << robot_id_ << "/scan";
+			m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("turtlebot3_lidar");
+			lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
+			lidarScanPublisher_	= nodeHandle_ -> create_publisher<sensor_msgs::msg::LaserScan>(lidarScanTopic.str(), 1);
+			
+			/********************* Publish static TF: base_link -> lidar *********************/
+			static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(nodeHandle_);
+
+			geometry_msgs::msg::TransformStamped tf;
+			tf.header.stamp = nodeHandle_->now();
+			tf.header.frame_id = robot_id_ + "/base_link";   // Parent frame
+			tf.child_frame_id = robot_id_ + "/lidar";        // Child frame (LiDAR frame)
+		
+			// LiDAR position relative to base_link
+			tf.transform.translation.x = -0.064;
+			tf.transform.translation.y = 0.0;
+			tf.transform.translation.z = 0.122;
+		
+			// LiDAR orientation relative to base_link
+			tf.transform.rotation.x = 0.0;
+			tf.transform.rotation.y = 0.0;
+			tf.transform.rotation.z = 0.0;
+			tf.transform.rotation.w = 1.0;
+		
+			// Publish the static transform once
+			static_tf_broadcaster_->sendTransform(tf);
+		}
+	#endif
 	if (HasSensor("differential_steering")){
 		stringstream wheelVelTopic;
 		wheelVelTopic 		<< "/" << robot_id_ << "/wheelVelocities";
@@ -351,21 +375,23 @@ void ArgosRosBridge::ControlStep()
 	/***********************************
 	 * Get readings from turtlebot 3 proximity sensor
 	 ***********************************/
-	if (HasSensor("turtlebot3_proximity")){
-		const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
-		ProximityList proxList;
-		const size_t prox_count = tProxReads.size();
-		proxList.n = static_cast<int>(prox_count);
-		for (size_t i = 0; i < prox_count; ++i) {
-			Proximity prox;
-			prox.value = tProxReads[i].Value;
-			prox.angle = tProxReads[i].Angle.GetValue();
-			proxList.proximities.push_back(prox);
+	#ifdef HAVE_TURTLEBOT3
+		if (HasSensor("turtlebot3_proximity")){
+			const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
+			ProximityList proxList;
+			const size_t prox_count = tProxReads.size();
+			proxList.n = static_cast<int>(prox_count);
+			for (size_t i = 0; i < prox_count; ++i) {
+				Proximity prox;
+				prox.value = tProxReads[i].Value;
+				prox.angle = tProxReads[i].Angle.GetValue();
+				proxList.proximities.push_back(prox);
 
+			}
+
+			promixityListPublisher_ -> publish(proxList);
 		}
-
-		promixityListPublisher_ -> publish(proxList);
-	}
+	#endif
 	/**************************************************************
 	 * Get readings from Colored Blob Omnidirectional Camera Sensor
 	 *************************************************************/
@@ -468,59 +494,61 @@ void ArgosRosBridge::ControlStep()
 	/**********************************************
 	 * Get readings from Turtlebot3 LiDAR sensor
 	 **********************************************/
-	if (HasSensor("turtlebot3_lidar")){
-		const auto now = nodeHandle_->now();
-		const std::string lidar_frame = robot_id_ + "/lidar";
+	#ifdef HAVE_TURTLEBOT3
+		if (HasSensor("turtlebot3_lidar")){
+			const auto now = nodeHandle_->now();
+			const std::string lidar_frame = robot_id_ + "/lidar";
 
-		LidarList lidarList;
-		lidarList.header.stamp = now;
-		lidarList.header.frame_id = lidar_frame;
-		lidarList.n = m_pcLidar->GetNumReadings();
-		const size_t lidar_count = static_cast<size_t>(lidarList.n);
-		if (lidar_count > 0) {
-			lidarList.lidars.reserve(lidar_count);
-		}
-
-		sensor_msgs::msg::LaserScan laserScan;
-		laserScan.header = lidarList.header;
-		if (lidar_count > 0) {
-			const double angle_increment_rad = argos::CRadians::TWO_PI.GetValue() / static_cast<double>(lidar_count);
-			const double angle_increment_deg = 360.0 / static_cast<double>(lidar_count);
-			laserScan.angle_min = -argos::CRadians::PI.GetValue();
-			laserScan.angle_increment = angle_increment_rad;
-			laserScan.angle_max = laserScan.angle_min + static_cast<double>(lidar_count - 1) * angle_increment_rad;
-			laserScan.time_increment = 0.0;
-			laserScan.scan_time = 0.0;
-			laserScan.range_min = 0.12f;
-			laserScan.range_max = 3.5f;
-			laserScan.ranges.resize(lidar_count);
-			laserScan.intensities.assign(lidar_count, 0.0f);
-
-			for (size_t i = 0; i < lidar_count; ++i) {
-				Lidar lidar;
-				lidar.angle = static_cast<float>(i * angle_increment_deg); // angle in degrees
-				lidar.value = static_cast<float>(m_pcLidar->GetReading(i));
-				lidarList.lidars.push_back(lidar);
-
-				// Convert millimetres to metres for ROS LaserScan consumers
-				const float range_metres = static_cast<float>(lidar.value * 0.001f);
-				laserScan.ranges[i] = range_metres;
+			LidarList lidarList;
+			lidarList.header.stamp = now;
+			lidarList.header.frame_id = lidar_frame;
+			lidarList.n = m_pcLidar->GetNumReadings();
+			const size_t lidar_count = static_cast<size_t>(lidarList.n);
+			if (lidar_count > 0) {
+				lidarList.lidars.reserve(lidar_count);
 			}
-		} else {
-			laserScan.angle_min = 0.0;
-			laserScan.angle_max = 0.0;
-			laserScan.angle_increment = 0.0;
-			laserScan.range_min = 0.0;
-			laserScan.range_max = 0.0;
-		}
 
-		if (lidarPublisher_) {
-			lidarPublisher_->publish(lidarList);
+			sensor_msgs::msg::LaserScan laserScan;
+			laserScan.header = lidarList.header;
+			if (lidar_count > 0) {
+				const double angle_increment_rad = argos::CRadians::TWO_PI.GetValue() / static_cast<double>(lidar_count);
+				const double angle_increment_deg = 360.0 / static_cast<double>(lidar_count);
+				laserScan.angle_min = -argos::CRadians::PI.GetValue();
+				laserScan.angle_increment = angle_increment_rad;
+				laserScan.angle_max = laserScan.angle_min + static_cast<double>(lidar_count - 1) * angle_increment_rad;
+				laserScan.time_increment = 0.0;
+				laserScan.scan_time = 0.0;
+				laserScan.range_min = 0.12f;
+				laserScan.range_max = 3.5f;
+				laserScan.ranges.resize(lidar_count);
+				laserScan.intensities.assign(lidar_count, 0.0f);
+
+				for (size_t i = 0; i < lidar_count; ++i) {
+					Lidar lidar;
+					lidar.angle = static_cast<float>(i * angle_increment_deg); // angle in degrees
+					lidar.value = static_cast<float>(m_pcLidar->GetReading(i));
+					lidarList.lidars.push_back(lidar);
+
+					// Convert millimetres to metres for ROS LaserScan consumers
+					const float range_metres = static_cast<float>(lidar.value * 0.001f);
+					laserScan.ranges[i] = range_metres;
+				}
+			} else {
+				laserScan.angle_min = 0.0;
+				laserScan.angle_max = 0.0;
+				laserScan.angle_increment = 0.0;
+				laserScan.range_min = 0.0;
+				laserScan.range_max = 0.0;
+			}
+
+			if (lidarPublisher_) {
+				lidarPublisher_->publish(lidarList);
+			}
+			if (lidarScanPublisher_) {
+				lidarScanPublisher_->publish(laserScan);
+			}
 		}
-		if (lidarScanPublisher_) {
-			lidarScanPublisher_->publish(laserScan);
-		}
-	}
+	#endif
 
 	if (lockstep_control_)
 	{

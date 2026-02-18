@@ -7,6 +7,9 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 find_package(ARGoS REQUIRED)
 find_package(GSL REQUIRED)
@@ -25,8 +28,18 @@ endif()
 
 find_library(ARGOS_CORE                    NAMES argos3core_simulator
              HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
-find_library(ARGOS_PLUGIN_SIM_TURTLEBOT3     NAMES argos3plugin_simulator_turtlebot3
+
+find_library(ARGOS_PLUGIN_SIM_TURTLEBOT3
+             NAMES argos3plugin_simulator_turtlebot3
              HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
+
+if(NOT ARGOS_PLUGIN_SIM_TURTLEBOT3 OR ARGOS_PLUGIN_SIM_TURTLEBOT3 STREQUAL "ARGOS_PLUGIN_SIM_TURTLEBOT3-NOTFOUND")
+    message(WARNING "TurtleBot3 plugin not found, compiling bridge without it")
+else()
+    message(STATUS "Found TurtleBot3 plugin: ${ARGOS_PLUGIN_SIM_TURTLEBOT3}")
+    add_definitions(-DHAVE_TURTLEBOT3)
+endif()
+
 find_library(ARGOS_PLUGIN_SIM_FOOTBOT     NAMES argos3plugin_simulator_footbot
              HINTS ${ARGOS_LIBRARY_DIRS} /usr/local/lib/argos3 /usr/lib/argos3)
 find_library(ARGOS_PLUGIN_SIM_GENERICROBOT NAMES argos3plugin_simulator_genericrobot
@@ -50,15 +63,23 @@ if(ARGOS_LIBRARY_DIRS)
   target_link_directories(argos_ros_bridge PRIVATE ${ARGOS_LIBRARY_DIRS})
 endif()
 
-target_link_libraries(argos_ros_bridge
-  ${cpp_typesupport_target}
-  ${ARGOS_CORE}
-  ${ARGOS_PLUGIN_SIM_TURTLEBOT3}
-  ${ARGOS_PLUGIN_SIM_FOOTBOT}
-  ${ARGOS_PLUGIN_SIM_GENERICROBOT}
+set(ARGS_LIBS
+    ${cpp_typesupport_target}
+    ${ARGOS_CORE}
+    ${ARGOS_PLUGIN_SIM_FOOTBOT}
+    ${ARGOS_PLUGIN_SIM_GENERICROBOT}
 )
+
+# TurtleBot3
+if(ARGOS_PLUGIN_SIM_TURTLEBOT3)
+    list(APPEND ARGS_LIBS ${ARGOS_PLUGIN_SIM_TURTLEBOT3})
+    add_definitions(-DHAVE_TURTLEBOT3)  
+endif()
+
+
+target_link_libraries(argos_ros_bridge ${ARGS_LIBS})
 ament_target_dependencies(argos_ros_bridge
-  rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs
+  rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs tf2_geometry_msgs tf2_ros
 )
 
 install(TARGETS argos_ros_bridge
