@@ -43,17 +43,18 @@ ArgosRosBridge::ArgosRosBridge() : robot_id_(),
 									timer_(nullptr),
 									// --- actuators / sensors ---
 									m_pcWheels(nullptr),
-									m_pcLight(nullptr),
-									m_pcLEDs(nullptr),
-									m_pcCamera(nullptr),
-									m_pcProximity(nullptr),
-									m_pcPosition(nullptr),
-									m_pcRABS(nullptr),
-									m_pcRABA(nullptr),
-									// --- params / counters ---
+										m_pcFootBotLight(nullptr),
+										m_pcLEDs(nullptr),
+										m_pcCamera(nullptr),
+										m_pcFootBotProximity(nullptr),
+										m_pcPosition(nullptr),
+										m_pcRABS(nullptr),
+										m_pcRABA(nullptr),
+										m_pcWheelsSensor(nullptr),
+										// --- params / counters ---
 									stopWithoutSubscriberCount(10),
 									   stepsSinceCallback(0),
-									   leftSpeed(0.0),
+									   leftSpeed(0.0),	
 									   rightSpeed(0.0),
 									   command_ready_(false),
 									   current_step_index_(0),
@@ -167,14 +168,14 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 	{
 		stringstream lightTopic;
 		lightTopic << "/" << robot_id_ << "/lightList";
-		m_pcLight = GetSensor<CCI_FootBotLightSensor>("footbot_light");
+		m_pcFootBotLight = GetSensor<CCI_FootBotLightSensor>("footbot_light");
 		lightListPublisher_ = nodeHandle_->create_publisher<LightList>(lightTopic.str(), 1);
 	}
 	if (HasSensor("footbot_proximity"))
 	{
 		stringstream proxTopic;
 		proxTopic << "/" << robot_id_ << "/proximityList";
-		m_pcProximity = GetSensor<CCI_FootBotProximitySensor>("footbot_proximity");
+		m_pcFootBotProximity = GetSensor<CCI_FootBotProximitySensor>("footbot_proximity");
 		promixityListPublisher_ = nodeHandle_->create_publisher<ProximityList>(proxTopic.str(), 1);
 	}
 	if (HasSensor("positioning"))
@@ -201,39 +202,6 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 		m_pcCamera = GetSensor<CCI_ColoredBlobOmnidirectionalCameraSensor>("colored_blob_omnidirectional_camera");
 		blobListPublisher_ = nodeHandle_->create_publisher<BlobList>(blobTopic.str(), 1);
 	}
-	#ifdef HAVE_TURTLEBOT3
-		if (HasSensor("turtlebot3_lidar")){
-			stringstream lidarTopic;
-			lidarTopic 			<< "/" << robot_id_ << "/lidarList";
-			stringstream lidarScanTopic;
-			lidarScanTopic		<< "/" << robot_id_ << "/scan";
-			m_pcLidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("turtlebot3_lidar");
-			lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
-			lidarScanPublisher_	= nodeHandle_ -> create_publisher<sensor_msgs::msg::LaserScan>(lidarScanTopic.str(), 1);
-			
-			/********************* Publish static TF: base_link -> lidar *********************/
-			static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(nodeHandle_);
-
-			geometry_msgs::msg::TransformStamped tf;
-			tf.header.stamp = nodeHandle_->now();
-			tf.header.frame_id = robot_id_ + "/base_link";   // Parent frame
-			tf.child_frame_id = robot_id_ + "/lidar";        // Child frame (LiDAR frame)
-		
-			// LiDAR position relative to base_link
-			tf.transform.translation.x = -0.064;
-			tf.transform.translation.y = 0.0;
-			tf.transform.translation.z = 0.122;
-		
-			// LiDAR orientation relative to base_link
-			tf.transform.rotation.x = 0.0;
-			tf.transform.rotation.y = 0.0;
-			tf.transform.rotation.z = 0.0;
-			tf.transform.rotation.w = 1.0;
-		
-			// Publish the static transform once
-			static_tf_broadcaster_->sendTransform(tf);
-		}
-	#endif
 	if (HasSensor("differential_steering")){
 		stringstream wheelVelTopic;
 		wheelVelTopic 		<< "/" << robot_id_ << "/wheelVelocities";
@@ -291,6 +259,87 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 		/* Enable */
 		m_pcLEDs->SetSingleColor(12, CColor::RED);
 	}
+
+	/***********************
+	 *  Init robot plugins
+	 * *********************/ 
+	#ifdef HAVE_TURTLEBOT3
+		if (HasSensor("turtlebot3_proximity")){
+			m_pcTurtlebot3Proximity = GetSensor<CCI_Turtlebot3ProximitySensor>("turtlebot3_proximity");
+			stringstream proxTopic;
+			proxTopic << "/" << robot_id_ << "/proximityList";
+			promixityListPublisher_ = nodeHandle_->create_publisher<ProximityList>(proxTopic.str(), 1);
+		}	
+		if (HasSensor("turtlebot3_lidar")){
+			stringstream lidarTopic;
+			lidarTopic 			<< "/" << robot_id_ << "/lidarList";
+			stringstream lidarScanTopic;
+			lidarScanTopic		<< "/" << robot_id_ << "/scan";
+			m_pcTurtlebot3Lidar 			= GetSensor < CCI_Turtlebot3LIDARSensor>("turtlebot3_lidar");
+			lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
+			lidarScanPublisher_	= nodeHandle_ -> create_publisher<sensor_msgs::msg::LaserScan>(lidarScanTopic.str(), 1);
+			
+			/********************* Publish static TF: base_link -> lidar *********************/
+			static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(nodeHandle_);
+
+			geometry_msgs::msg::TransformStamped tf;
+			tf.header.stamp = nodeHandle_->now();
+			tf.header.frame_id = robot_id_ + "/base_link";   // Parent frame
+			tf.child_frame_id = robot_id_ + "/lidar";        // Child frame (LiDAR frame)
+		
+			// LiDAR position relative to base_link
+			tf.transform.translation.x = -0.064;
+			tf.transform.translation.y = 0.0;
+			tf.transform.translation.z = 0.122;
+		
+			// LiDAR orientation relative to base_link
+			tf.transform.rotation.x = 0.0;
+			tf.transform.rotation.y = 0.0;
+			tf.transform.rotation.z = 0.0;
+			tf.transform.rotation.w = 1.0;
+		
+			// Publish the static transform once
+			static_tf_broadcaster_->sendTransform(tf);
+		}
+	#endif
+
+	#ifdef HAVE_TURTLEBOT4
+		if (HasSensor("turtlebot4_proximity")){
+			m_pcTurtlebot4Proximity = GetSensor<CCI_Turtlebot4ProximitySensor>("turtlebot4_proximity");
+			stringstream proxTopic;
+			proxTopic << "/" << robot_id_ << "/proximityList";
+			promixityListPublisher_ = nodeHandle_->create_publisher<ProximityList>(proxTopic.str(), 1);
+		}
+		if (HasSensor("turtlebot4_lidar")){
+			m_pcTurtlebot4Lidar = GetSensor<CCI_Turtlebot4LIDARSensor>("turtlebot4_lidar");
+			stringstream lidarTopic;
+			lidarTopic 			<< "/" << robot_id_ << "/lidarList";
+			stringstream lidarScanTopic;
+			lidarScanTopic		<< "/" << robot_id_ << "/scan";
+			lidarPublisher_ 	= nodeHandle_ -> create_publisher<LidarList>(lidarTopic.str(), 1);
+			lidarScanPublisher_	= nodeHandle_ -> create_publisher<sensor_msgs::msg::LaserScan>(lidarScanTopic.str(), 1);
+		}
+		if (HasSensor("turtlebot4_ground")){
+			m_pcTurtlebot4BaseGround = GetSensor<CCI_Turtlebot4BaseGroundSensor>("turtlebot4_ground");
+			stringstream groundTopic;
+			groundTopic << "/" << robot_id_ << "/groundList";
+			groundListPublisher_ = nodeHandle_->create_publisher<GroundReadingList>(groundTopic.str(), 1);
+		}
+		if (HasSensor("turtlebot4_colored_blob_omnidirectional_camera")){
+			m_pcTurtlebot4Camera = GetSensor<CCI_Turtlebot4ColoredBlobOmnidirectionalCameraSensor>("turtlebot4_colored_blob_omnidirectional_camera");
+			stringstream blobTopic;
+			blobTopic << "/" << robot_id_ << "/blobList";
+			blobListPublisher_ = nodeHandle_->create_publisher<BlobList>(blobTopic.str(), 1);
+		}
+		if (HasSensor("turtlebot4_light")){
+			m_pcTurtlebot4Light = GetSensor<CCI_Turtlebot4LightSensor>("turtlebot4_light");
+			stringstream lightTopic;
+			lightTopic << "/" << robot_id_ << "/lightList";
+			lightListPublisher_ = nodeHandle_->create_publisher<LightList>(lightTopic.str(), 1);
+		}
+	#endif
+
+
 	/*
 	 * Parse the configuration file
 	 *
@@ -341,7 +390,7 @@ void ArgosRosBridge::ControlStep()
 	 *********************************/
 	if (HasSensor("footbot_light"))
 	{
-		const CCI_FootBotLightSensor::TReadings &tLightReads = m_pcLight->GetReadings();
+		const CCI_FootBotLightSensor::TReadings &tLightReads = m_pcFootBotLight->GetReadings();
 		LightList lightList;
 		lightList.n = tLightReads.size();
 		for (int i = 0; i < lightList.n; ++i)
@@ -359,7 +408,7 @@ void ArgosRosBridge::ControlStep()
 	 ***********************************/
 	if (HasSensor("footbot_proximity"))
 	{
-		const CCI_FootBotProximitySensor::TReadings &tProxReads = m_pcProximity->GetReadings();
+		const CCI_FootBotProximitySensor::TReadings &tProxReads = m_pcFootBotProximity->GetReadings();
 		ProximityList proxList;
 		proxList.n = tProxReads.size();
 		for (int i = 0; i < proxList.n; ++i)
@@ -372,26 +421,7 @@ void ArgosRosBridge::ControlStep()
 
 		promixityListPublisher_->publish(proxList);
 	}
-	/***********************************
-	 * Get readings from turtlebot 3 proximity sensor
-	 ***********************************/
-	#ifdef HAVE_TURTLEBOT3
-		if (HasSensor("turtlebot3_proximity")){
-			const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
-			ProximityList proxList;
-			const size_t prox_count = tProxReads.size();
-			proxList.n = static_cast<int>(prox_count);
-			for (size_t i = 0; i < prox_count; ++i) {
-				Proximity prox;
-				prox.value = tProxReads[i].Value;
-				prox.angle = tProxReads[i].Angle.GetValue();
-				proxList.proximities.push_back(prox);
-
-			}
-
-			promixityListPublisher_ -> publish(proxList);
-		}
-	#endif
+	
 	/**************************************************************
 	 * Get readings from Colored Blob Omnidirectional Camera Sensor
 	 *************************************************************/
@@ -491,10 +521,29 @@ void ArgosRosBridge::ControlStep()
 		rabPublisher_->publish(packetList);
 	}
 
-	/**********************************************
-	 * Get readings from Turtlebot3 LiDAR sensor
-	 **********************************************/
+	
 	#ifdef HAVE_TURTLEBOT3
+		/***********************************
+		 * Get readings from turtlebot 3 proximity sensor
+		 ***********************************/
+		if (HasSensor("turtlebot3_proximity")){
+			const CCI_Turtlebot3ProximitySensor::TReadings& tProxReads = m_pcTurtlebot3Proximity->GetReadings();
+			ProximityList proxList;
+			const size_t prox_count = tProxReads.size();
+			proxList.n = static_cast<int>(prox_count);
+			for (size_t i = 0; i < prox_count; ++i) {
+				Proximity prox;
+				prox.value = tProxReads[i].Value;
+				prox.angle = tProxReads[i].Angle.GetValue();
+				proxList.proximities.push_back(prox);
+
+			}
+
+			promixityListPublisher_ -> publish(proxList);
+		}
+		/**********************************************
+		 * Get readings from Turtlebot3 LiDAR sensor
+		**********************************************/
 		if (HasSensor("turtlebot3_lidar")){
 			const auto now = nodeHandle_->now();
 			const std::string lidar_frame = robot_id_ + "/lidar";
@@ -502,7 +551,7 @@ void ArgosRosBridge::ControlStep()
 			LidarList lidarList;
 			lidarList.header.stamp = now;
 			lidarList.header.frame_id = lidar_frame;
-			lidarList.n = m_pcLidar->GetNumReadings();
+			lidarList.n = m_pcTurtlebot3Lidar->GetNumReadings();
 			const size_t lidar_count = static_cast<size_t>(lidarList.n);
 			if (lidar_count > 0) {
 				lidarList.lidars.reserve(lidar_count);
@@ -526,7 +575,7 @@ void ArgosRosBridge::ControlStep()
 				for (size_t i = 0; i < lidar_count; ++i) {
 					Lidar lidar;
 					lidar.angle = static_cast<float>(i * angle_increment_deg); // angle in degrees
-					lidar.value = static_cast<float>(m_pcLidar->GetReading(i));
+					lidar.value = static_cast<float>(m_pcTurtlebot3Lidar->GetReading(i));
 					lidarList.lidars.push_back(lidar);
 
 					// Convert millimetres to metres for ROS LaserScan consumers
@@ -547,6 +596,130 @@ void ArgosRosBridge::ControlStep()
 			if (lidarScanPublisher_) {
 				lidarScanPublisher_->publish(laserScan);
 			}
+		}
+	#endif
+
+	#ifdef HAVE_TURTLEBOT4
+		/***********************************
+		 * Get readings from turtlebot 4 proximity sensor
+		 ***********************************/
+		if (HasSensor("turtlebot4_proximity")){
+			const CCI_Turtlebot4ProximitySensor::TReadings& tProxReads = m_pcTurtlebot4Proximity->GetReadings();
+			ProximityList proxList;
+			const size_t prox_count = tProxReads.size();
+			proxList.n = static_cast<int>(prox_count);
+			for (size_t i = 0; i < prox_count; ++i) {
+				Proximity prox;
+				prox.value = tProxReads[i].Value;
+				prox.angle = tProxReads[i].Angle.GetValue();
+				proxList.proximities.push_back(prox);
+
+			}
+
+			promixityListPublisher_ -> publish(proxList);
+			
+		}
+		/**********************************************
+		 * Get readings from Turtlebot4 LiDAR sensor
+		 * 	**********************************************/
+		if (HasSensor("turtlebot4_lidar")){
+			const auto now = nodeHandle_->now();
+			const std::string lidar_frame = robot_id_ + "/lidar";
+
+			LidarList lidarList;
+			lidarList.header.stamp = now;
+			lidarList.header.frame_id = lidar_frame;
+			lidarList.n = m_pcTurtlebot4Lidar->GetNumReadings();
+			const size_t lidar_count = static_cast<size_t>(lidarList.n);
+			if (lidar_count > 0) {
+				lidarList.lidars.reserve(lidar_count);
+			}
+
+			sensor_msgs::msg::LaserScan laserScan;
+			laserScan.header = lidarList.header;
+			if (lidar_count > 0) {
+				const double angle_increment_rad = argos::CRadians::TWO_PI.GetValue() / static_cast<double>(lidar_count);
+				const double angle_increment_deg = 360.0 / static_cast<double>(lidar_count);
+				laserScan.angle_min = -argos::CRadians::PI.GetValue();
+				laserScan.angle_increment = angle_increment_rad;
+				laserScan.angle_max = laserScan.angle_min + static_cast<double>(lidar_count - 1) * angle_increment_rad;
+				laserScan.time_increment = 0.0;
+				laserScan.scan_time = 0.0;
+				laserScan.range_min = 0.12f;
+				laserScan.range_max = 3.5f;
+				laserScan.ranges.resize(lidar_count);
+				laserScan.intensities.assign(lidar_count, 0.0f);
+
+				for (size_t i = 0; i < lidar_count; ++i) {
+					Lidar lidar;
+					lidar.angle = static_cast<float>(i * angle_increment_deg); // angle in degrees
+					lidar.value = static_cast<float>(m_pcTurtlebot4Lidar->GetReading(i));
+					lidarList.lidars.push_back(lidar);
+
+					// Convert millimetres to metres for ROS LaserScan consumers
+					const float range_metres = static_cast<float>(lidar.value * 0.001f);
+					laserScan.ranges[i] = range_metres;
+				}
+			} else {
+				laserScan.angle_min = 0.0;
+				laserScan.angle_max = 0.0;
+				laserScan.angle_increment = 0.0;
+				laserScan.range_min = 0.0;
+				laserScan.range_max = 0.0;
+			}
+
+			if (lidarPublisher_) {
+				lidarPublisher_->publish(lidarList);
+			}
+			if (lidarScanPublisher_) {
+				lidarScanPublisher_->publish(laserScan);
+			}
+		}
+		/**********************************************
+		 * Get readings from Turtlebot4 ground sensor
+		 * 	**********************************************/
+		if (HasSensor("turtlebot4_ground")){
+			const auto now = nodeHandle_->now();
+			const std::string ground_frame = robot_id_ + "/base_link";	
+			GroundReadingList groundList;
+			groundList.header.stamp = now;
+			groundList.header.frame_id = ground_frame;
+			const CCI_Turtlebot4BaseGroundSensor::TReadings& tGroundReads = m_pcTurtlebot4BaseGround->GetReadings();
+			groundList.n = tGroundReads.size();
+			for (size_t i = 0; i < static_cast<size_t>(groundList.n); ++i) {
+				GroundReading ground;
+				ground.value = tGroundReads[i].Value;
+			}
+			groundListPublisher_->publish(groundList);
+		}
+		/**********************************************
+		 * Get readings from Turtlebot4 colored blob omnidirectional camera sensor
+		 * 	**********************************************/
+		if (HasSensor("turtlebot4_colored_blob_omnidirectional_camera")){
+			CCI_Turtlebot4ColoredBlobOmnidirectionalCameraSensor::SReadings camReads = m_pcTurtlebot4Camera->GetReadings();
+			BlobList blobList;
+			blobList.n = camReads.BlobList.size();
+			Blob blob;
+			for (int i = 0; i < blobList.n; ++i)
+			{
+				// Blob blob;
+				stringstream ss;
+				ss << camReads.BlobList[i]->Color;
+				blob.color = ss.str();
+				blob.distance = camReads.BlobList[i]->Distance;
+
+				// Make the angle of the puck in the range [-PI, PI].  This is useful for
+				// tasks such as homing in on a puck using a simple controller based on
+				// the sign of this angle.
+				blob.angle = camReads.BlobList[i]->Angle.GetValue(); //.SignedNormalize().GetValue();
+				blobList.blobs.push_back(blob);
+			}
+
+			// Sort the blob list by angle.  This is useful for the purposes of extracting meaning from
+			// the local blob configuration (e.g. fitting a lines to the detected blobs).
+			sort(blobList.blobs.begin(), blobList.blobs.end(), blobComparator);
+
+			blobListPublisher_->publish(blobList);
 		}
 	#endif
 
