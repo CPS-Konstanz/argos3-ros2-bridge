@@ -254,12 +254,7 @@ void ArgosRosBridge::Init(TConfigurationNode &t_node)
 		/* Enable camera filtering */
 		m_pcCamera->Enable();
 	}
-	if (HasActuator("leds"))
-	{
-		/* Enable */
-		m_pcLEDs->SetSingleColor(12, CColor::RED);
-	}
-
+	
 	/***********************
 	 *  Init robot plugins
 	 * *********************/ 
@@ -618,6 +613,23 @@ void ArgosRosBridge::ControlStep()
 
 			promixityListPublisher_ -> publish(proxList);
 			
+		}
+		/**********************************************
+		 * Get readings from Turtlebot4 light sensor 
+		 **********************************************/
+		if (HasSensor("turtlebot4_light")){
+			const CCI_Turtlebot4LightSensor::TReadings &tLightReads = m_pcTurtlebot4Light->GetReadings();
+			LightList lightList;
+			lightList.n = tLightReads.size();
+			for (int i = 0; i < lightList.n; ++i)
+			{
+				Light light;
+				light.value = tLightReads[i].Value;
+				light.angle = tLightReads[i].Angle.GetValue();
+				lightList.lights.push_back(light);
+			}
+
+			lightListPublisher_->publish(lightList);
 		}
 		/**********************************************
 		 * Get readings from Turtlebot4 LiDAR sensor
