@@ -59,7 +59,7 @@ sudo apt install -y \
 If you manage dependencies via `rosdep`:
 
 ```bash
-cd /home/sindiso/ros2_ws
+cd ~/ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
 ```
 
@@ -77,21 +77,21 @@ If not found, the bridge still compiles but TurtleBot3/TurtleBot4-specific senso
 ### 3.1 Clone Into A ROS 2 Workspace
 
 ```bash
-mkdir -p /home/sindiso/ros2_ws/src
-cd /home/sindiso/ros2_ws/src
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
 git clone https://github.com/CPS-Konstanz/argos3-ros2-bridge.git
 ```
 
 Expected path:
 
 ```text
-/home/sindiso/ros2_ws/src/argos3-ros2-bridge
+~/ros2_ws/src/argos3-ros2-bridge
 ```
 
 ### 3.2 Build
 
 ```bash
-cd /home/sindiso/ros2_ws
+cd ~/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 colcon build --symlink-install --packages-up-to argos3_ros2_bridge
 ```
@@ -99,7 +99,7 @@ colcon build --symlink-install --packages-up-to argos3_ros2_bridge
 ### 3.3 Source Overlay
 
 ```bash
-source /home/sindiso/ros2_ws/install/setup.bash
+source ~/ros2_ws/install/setup.bash
 ```
 
 ### 3.4 Verify Build Artifacts
@@ -107,7 +107,7 @@ source /home/sindiso/ros2_ws/install/setup.bash
 Check key outputs:
 
 ```bash
-ls /home/sindiso/ros2_ws/install/argos3_ros2_bridge/lib/libargos_ros_bridge.so
+ls ~/ros2_ws/install/argos3_ros2_bridge/lib/libargos_ros_bridge.so
 ros2 interface show argos3_ros2_bridge/msg/LightList
 ```
 
@@ -226,16 +226,16 @@ This is the most important run sequence.
 ### 7.1 Terminal A: Start ARGoS With Bridge Plugin
 
 ```bash
-cd /home/sindiso/ros2_ws
+cd ~/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
-source /home/sindiso/ros2_ws/install/setup.bash
+source ~/ros2_ws/install/setup.bash
 
-export BRIDGE_LIB=/home/sindiso/ros2_ws/install/argos3_ros2_bridge/lib
+export BRIDGE_LIB=~/ros2_ws/install/argos3_ros2_bridge/lib
 export LD_LIBRARY_PATH="/usr/local/lib/argos3:${BRIDGE_LIB}:${LD_LIBRARY_PATH}"
 export ARGOS_PLUGIN_PATH="${BRIDGE_LIB}${ARGOS_PLUGIN_PATH:+:${ARGOS_PLUGIN_PATH}}"
 export ROS_LOCALHOST_ONLY=0
 
-RMW_IMPLEMENTATION=rmw_cyclonedds_cpp argos3 -c /home/sindiso/ros2_ws/src/turtlebot-flocking/launch/flocking.argos
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp argos3 -c ~/ros2_ws/src/turtlebot-flocking/launch/flocking.argos
 ```
 
 If ARGoS reports it cannot load `libargos_ros_bridge.so`, your `ARGOS_PLUGIN_PATH` is wrong.
@@ -250,9 +250,9 @@ Controllers must match each robot in:
 Single robot example (`bot0`, domain 0):
 
 ```bash
-cd /home/sindiso/ros2_ws
+cd ~/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
-source /home/sindiso/ros2_ws/install/setup.bash
+source ~/ros2_ws/install/setup.bash
 ROS_DOMAIN_ID=0 ros2 run argos3_ros2_bridge turtlebot_flocking --ros-args -r __ns:=/bot0
 ```
 
@@ -377,7 +377,7 @@ If this line is missing, `HasSensor("new_sensor_name")` is false and no topic is
 ### 8.6 Step 6: Rebuild And Validate
 
 ```bash
-cd /home/sindiso/ros2_ws
+cd ~/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 colcon build --symlink-install --packages-select argos3_ros2_bridge
 source install/setup.bash
@@ -486,10 +486,10 @@ This logs per-step/per-robot lockstep timing and command latency fields.
 
 ```bash
 # Terminal A (bridge + ARGoS)
-cd /home/sindiso/ros2_ws
+cd ~/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 source install/setup.bash
-export BRIDGE_LIB=/home/sindiso/ros2_ws/install/argos3_ros2_bridge/lib
+export BRIDGE_LIB=~/ros2_ws/install/argos3_ros2_bridge/lib
 export LD_LIBRARY_PATH="/usr/local/lib/argos3:${BRIDGE_LIB}:${LD_LIBRARY_PATH}"
 export ARGOS_PLUGIN_PATH="${BRIDGE_LIB}${ARGOS_PLUGIN_PATH:+:${ARGOS_PLUGIN_PATH}}"
 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp argos3 -c src/turtlebot-flocking/launch/flocking.argos
@@ -497,7 +497,7 @@ RMW_IMPLEMENTATION=rmw_cyclonedds_cpp argos3 -c src/turtlebot-flocking/launch/fl
 
 ```bash
 # Terminal B (example controller for bot0)
-cd /home/sindiso/ros2_ws
+cd ~/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 source install/setup.bash
 ROS_DOMAIN_ID=0 ros2 run argos3_ros2_bridge turtlebot_flocking --ros-args -r __ns:=/bot0
