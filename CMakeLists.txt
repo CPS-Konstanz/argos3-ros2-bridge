@@ -27,6 +27,8 @@ set(msg_files
   "msg/LidarList.msg"
   "msg/Light.msg"
   "msg/LightList.msg"
+  "msg/GroundReading.msg"
+  "msg/GroundReadingList.msg"
   "msg/Position.msg"
   "msg/Packet.msg"
   "msg/PacketList.msg"

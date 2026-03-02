@@ -7,7 +7,6 @@
 
 #ifndef ARGOS_ROS_BRIDGE_H_
 #define ARGOS_ROS_BRIDGE_H_
-
 #include <string>
 #include <atomic>
 #include <chrono>
@@ -54,6 +53,19 @@
 #include <argos3/plugins/robots/turtlebot3/control_interface/ci_turtlebot3_proximity_sensor.h>
 #endif
 
+#ifdef HAVE_TURTLEBOT4
+/* Definition of the turtlebot4 lidar sensor*/
+#include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_lidar_sensor.h>
+/* Definition of the turtlebot4 proximity sensor */
+#include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_proximity_sensor.h>
+/* Definition of the turtlebot4 base ground sensor*/
+#include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_base_ground_sensor.h>
+/* Definition of the turtlebot4 colored blob omnidirectional camera sensor*/
+#include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_colored_blob_omnidirectional_camera_sensor.h>
+/* Definition of the turtlebot4 light sensor */
+#include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_light_sensor.h>
+#endif
+
 
 /**
  * ROS2 Imports
@@ -73,6 +85,7 @@
 #include "argos3_ros2_bridge/msg/packet_list.hpp"
 #include "argos3_ros2_bridge/msg/proximity_list.hpp"
 #include "argos3_ros2_bridge/msg/wheel_velocities.hpp"
+#include "argos3_ros2_bridge/msg/ground_reading_list.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -121,6 +134,8 @@ class ArgosRosBridge : public CCI_Controller{
 		rclcpp::Publisher<argos3_ros2_bridge::msg::WheelVelocities>::SharedPtr wheelVelocitiesPublisher_;
 		//static tf publisher
 		std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
+		// Ground sensor publisher
+		rclcpp::Publisher<argos3_ros2_bridge::msg::GroundReadingList>::SharedPtr groundListPublisher_;
 		/************************************
 		 * Subscribers
 		 ***********************************/
@@ -141,13 +156,13 @@ class ArgosRosBridge : public CCI_Controller{
 		/* Pointer to the differential steering actuator */
 		CCI_DifferentialSteeringActuator* m_pcWheels;
 		/* Pointer to the foot-bot light sensor */
-		CCI_FootBotLightSensor* m_pcLight;
+		CCI_FootBotLightSensor* m_pcFootBotLight;
 		/* Pointer to the LEDs actuator */
 		CCI_LEDsActuator* m_pcLEDs;
 		/* Pointer to the omnidirectional camera sensor */
 		CCI_ColoredBlobOmnidirectionalCameraSensor* m_pcCamera;
 		/* Pointer to proximity sensor */
-		CCI_FootBotProximitySensor* m_pcProximity;
+		CCI_FootBotProximitySensor* m_pcFootBotProximity;
 		/* Pointer to positioning sensor */
 		CCI_PositioningSensor* m_pcPosition;
 		/* Pointer to the range-and-bearing sensor */
@@ -160,9 +175,23 @@ class ArgosRosBridge : public CCI_Controller{
 		
 		#ifdef HAVE_TURTLEBOT3
 			/* Pointer to turtlebot3 lidar sensor */
-			CCI_Turtlebot3LIDARSensor* m_pcLidar;
+			CCI_Turtlebot3LIDARSensor* m_pcTurtlebot3Lidar;
 			/* Pointer to turtlebot3 proximity sensor */
 			CCI_Turtlebot3ProximitySensor* m_pcTurtlebot3Proximity;
+		#endif
+
+		#ifdef HAVE_TURTLEBOT4
+			/* Pointer to turtlebot4 lidar sensor */
+			CCI_Turtlebot4LIDARSensor* m_pcTurtlebot4Lidar;
+			/* Pointer to turtlebot4 proximity sensor */
+			CCI_Turtlebot4ProximitySensor* m_pcTurtlebot4Proximity;
+			/* Pointer to turtlebot4 base ground sensor */
+			CCI_Turtlebot4BaseGroundSensor* m_pcTurtlebot4BaseGround;
+			/* Pointer to turtlebot4 colored blob omnidirectional camera sensor */
+			CCI_Turtlebot4ColoredBlobOmnidirectionalCameraSensor* m_pcTurtlebot4Camera;
+			/* Pointer to turtlebot4 light sensor */
+			CCI_Turtlebot4LightSensor* m_pcTurtlebot4Light;
+
 		#endif
 
 		// Differential drive geometry defaults (foot-bot dimensions)
