@@ -502,3 +502,21 @@ source /opt/ros/$ROS_DISTRO/setup.bash
 source install/setup.bash
 ROS_DOMAIN_ID=0 ros2 run argos3_ros2_bridge turtlebot_flocking --ros-args -r __ns:=/bot0
 ```
+
+## Citation
+If you use ARGoS3-ROS2 Bridge in your research, please cite our work:
+```
+@inCollection{Mkhatshwa:ANTS:2026,
+   author = {Mkhatshwa, Sindiso and Zhang, Tianfu and Leopardi, Paolo and Hamann, Heiko and Reina, Andreagiovanni},
+   title = {{ROS-2-ARGoS B}ridge: Scalable Simulations of Swarms of 1000 and More Robots},
+   address = {Cham},
+   doi={},
+   pages = {in press},
+   series = {LNCS},
+   volume = {16515},
+   editor = {{R. Gross et al.}},
+   booktitle = {Swarm Intelligence (ANTS 2026)},
+   publisher = {Springer},
+   year = {2026}
+}
+```
