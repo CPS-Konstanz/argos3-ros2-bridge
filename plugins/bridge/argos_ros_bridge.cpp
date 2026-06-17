@@ -807,8 +807,8 @@ void ArgosRosBridge::cmdVelCallback(const Twist &twist)
 
 	{
 		std::lock_guard<std::mutex> lock(command_mutex_);
-		leftSpeed = (v - (L / 2.0) * omega) / R;
-		rightSpeed = (v + (L / 2.0) * omega) / R;
+		leftSpeed = (v - (L / 2.0) * omega);
+		rightSpeed = (v + (L / 2.0) * omega);
 		stepsSinceCallback.store(0);
 		const uint64_t awaited_step = lockstep_control_ ? waiting_command_step_ : current_step_index_.load();
 		last_command_step_index_ = awaited_step;
