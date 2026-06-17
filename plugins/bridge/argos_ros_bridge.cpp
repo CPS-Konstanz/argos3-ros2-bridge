@@ -803,7 +803,6 @@ void ArgosRosBridge::cmdVelCallback(const Twist &twist)
 	const double v = twist.linear.x;		// Forward linear velocity
 	const double omega = twist.angular.z; // Rotational (angular) velocity
 	const double L = halfBaseline_ * 2.0; // Distance between wheels (wheelbase)
-	const double R = wheelRadius_;			// Wheel radius
 
 	{
 		std::lock_guard<std::mutex> lock(command_mutex_);
