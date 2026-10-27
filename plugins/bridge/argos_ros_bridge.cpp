@@ -698,10 +698,16 @@ void ArgosRosBridge::ControlStep()
 			groundList.header.frame_id = ground_frame;
 			const CCI_Turtlebot4BaseGroundSensor::TReadings& tGroundReads = m_pcTurtlebot4BaseGround->GetReadings();
 			groundList.n = tGroundReads.size();
-			for (size_t i = 0; i < static_cast<size_t>(groundList.n); ++i) {
-				GroundReading ground;
+			groundList.readings.clear();
+			groundList.readings.reserve(groundList.n);
+		
+			for(size_t i = 0; i < tGroundReads.size(); ++i) {
+				argos3_ros2_bridge::msg::GroundReading ground;
+		
 				ground.value = tGroundReads[i].Value;
+				groundList.readings.push_back(ground);
 			}
+		
 			groundListPublisher_->publish(groundList);
 		}
 		/**********************************************
