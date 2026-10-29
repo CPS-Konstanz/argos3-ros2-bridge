@@ -1,3 +1,17 @@
+// Copyright 2026 The argos3-ros2-bridge Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /*
  * argos_ros_bridge.h
  *
@@ -5,18 +19,8 @@
  *
  */
 
-#ifndef ARGOS_ROS_BRIDGE_H_
-#define ARGOS_ROS_BRIDGE_H_
-#include <string>
-#include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <thread>
-#include <iostream>
-#include <sstream>
-#include <cuchar>
+#ifndef PLUGINS__BRIDGE__ARGOS_ROS_BRIDGE_H_
+#define PLUGINS__BRIDGE__ARGOS_ROS_BRIDGE_H_
 
 #include <argos3/core/simulator/simulator.h>
 #include <argos3/core/simulator/space/space.h>
@@ -42,9 +46,11 @@
 /* Definition of the distance scanner sensor */
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_distance_scanner_sensor.h>
 /* Definition of the perspective camera camera sensor */
+// *INDENT-OFF* (long include paths; keep each on one line for all uncrustify versions)
 #include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_perspective_camera_sensor.h>
 /* Definition of the omnidirectional camera sensor */
 #include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
+// *INDENT-ON*
 
 #ifdef HAVE_TURTLEBOT3
 /* Definition of the turtlebot3 lidar sensor*/
@@ -61,11 +67,23 @@
 /* Definition of the turtlebot4 base ground sensor*/
 #include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_base_ground_sensor.h>
 /* Definition of the turtlebot4 colored blob omnidirectional camera sensor*/
+// *INDENT-OFF* (long include path; keep it on one line for all uncrustify versions)
 #include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_colored_blob_omnidirectional_camera_sensor.h>
+// *INDENT-ON*
 /* Definition of the turtlebot4 light sensor */
 #include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_light_sensor.h>
 #endif
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cuchar>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
 
 /**
  * ROS2 Imports
@@ -87,195 +105,193 @@
 #include "argos3_ros2_bridge/msg/wheel_velocities.hpp"
 #include "argos3_ros2_bridge/msg/ground_reading_list.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <geometry_msgs/msg/transform_stamped.hpp>
+#include "tf2_ros/static_transform_broadcaster.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 
-using namespace argos;
-using namespace std::chrono_literals;
-class ArgosRosBridge : public CCI_Controller{
-    private:
-		std::string robot_id_;
-		bool multiple_domains_;
-		int nodes_per_domain_;
-		int domain_id_;
-		rclcpp::Context::SharedPtr context_;
-		std::shared_ptr<rclcpp::Node> nodeHandle_;  // Per-instance node
-		bool enable_time_synchronization;
-		// Maximum number of attempts for synchronization
-		int max_attempts;
-		bool lockstep_control_;
-		std::chrono::milliseconds command_timeout_;
-		static rclcpp::Context::SharedPtr global_context_;  // Single shared context
-		std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
-		std::thread executor_thread_;
-		/************************************
-		 * Publishers
-		 ***********************************/
-		// Light list publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::LightList>::SharedPtr lightListPublisher_;
-		// Proximity sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::ProximityList>::SharedPtr promixityListPublisher_;
-		// Omnidirectional camera sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::BlobList>::SharedPtr blobListPublisher_;
-		// Position sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::Position>::SharedPtr positionPublisher_;
-		// Odometry publisher
-		rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometryPublisher_;
-		// Position sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::PacketList>::SharedPtr rabPublisher_;
-		// argos clock publisher
-		rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clockPublisher_;
+using namespace argos;  // NOLINT(build/namespaces)
 
-		// LiDAR sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::LidarList>::SharedPtr lidarPublisher_;
-		// LiDAR sensor LaserScan publisher
-		rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr lidarScanPublisher_;
-		// Differential steering sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::WheelVelocities>::SharedPtr wheelVelocitiesPublisher_;
-		//static tf publisher
-		std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
-		// Ground sensor publisher
-		rclcpp::Publisher<argos3_ros2_bridge::msg::GroundReadingList>::SharedPtr groundListPublisher_;
-		/************************************
-		 * Subscribers
-		 ***********************************/
-		// Subscriber for cmd_vel (Twist message) topic.
-		rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmdVelSubscriber_;
-		// Subscriber for cmd_rab (Packet) topic
-		rclcpp::Subscription<argos3_ros2_bridge::msg::Packet>::SharedPtr cmdRabSubscriber_;
-		// Subscriber for cmd_led (Led) topic
-		rclcpp::Subscription<argos3_ros2_bridge::msg::Led>::SharedPtr cmdLedSubscriber_;
-		// Subscriber for ros2 clock topic
-		rclcpp::Subscription<rosgraph_msgs::msg::Clock>::SharedPtr clockSubscriber_;
+class ArgosRosBridge: public CCI_Controller {
+private:
+  std::string robot_id_;
+  bool multiple_domains_;
+  int nodes_per_domain_;
+  int domain_id_;
+  rclcpp::Context::SharedPtr context_;
+  std::shared_ptr < rclcpp::Node > nodeHandle_;             // Per-instance node
+  bool enable_time_synchronization;
+  // Maximum number of attempts for synchronization
+  int max_attempts;
+  bool lockstep_control_;
+  std::chrono::milliseconds command_timeout_;
+  static rclcpp::Context::SharedPtr global_context_;                // Single shared context
+  std::shared_ptr < rclcpp::executors::SingleThreadedExecutor > executor_;
+  std::thread executor_thread_;
+  /************************************
+       * Publishers
+       ***********************************/
+  // Light list publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::LightList > ::SharedPtr lightListPublisher_;
+  // Proximity sensor publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::ProximityList > ::SharedPtr promixityListPublisher_;
+  // Omnidirectional camera sensor publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::BlobList > ::SharedPtr blobListPublisher_;
+  // Position sensor publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::Position > ::SharedPtr positionPublisher_;
+  // Odometry publisher
+  rclcpp::Publisher < nav_msgs::msg::Odometry > ::SharedPtr odometryPublisher_;
+  // Position sensor publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::PacketList > ::SharedPtr rabPublisher_;
+  // argos clock publisher
+  rclcpp::Publisher < rosgraph_msgs::msg::Clock > ::SharedPtr clockPublisher_;
 
-
-
-		rclcpp::TimerBase::SharedPtr timer_;
+  // LiDAR sensor publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::LidarList > ::SharedPtr lidarPublisher_;
+  // LiDAR sensor LaserScan publisher
+  rclcpp::Publisher < sensor_msgs::msg::LaserScan > ::SharedPtr lidarScanPublisher_;
+  // Differential steering sensor publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::WheelVelocities >
+  ::SharedPtr wheelVelocitiesPublisher_;
+  // static tf publisher
+  std::shared_ptr < tf2_ros::StaticTransformBroadcaster > static_tf_broadcaster_;
+  // Ground sensor publisher
+  rclcpp::Publisher < argos3_ros2_bridge::msg::GroundReadingList > ::SharedPtr groundListPublisher_;
+  /************************************
+         * Subscribers
+         ***********************************/
+  // Subscriber for cmd_vel (Twist message) topic.
+  rclcpp::Subscription < geometry_msgs::msg::Twist > ::SharedPtr cmdVelSubscriber_;
+  // Subscriber for cmd_rab (Packet) topic
+  rclcpp::Subscription < argos3_ros2_bridge::msg::Packet > ::SharedPtr cmdRabSubscriber_;
+  // Subscriber for cmd_led (Led) topic
+  rclcpp::Subscription < argos3_ros2_bridge::msg::Led > ::SharedPtr cmdLedSubscriber_;
+  // Subscriber for ros2 clock topic
+  rclcpp::Subscription < rosgraph_msgs::msg::Clock > ::SharedPtr clockSubscriber_;
 
 
-		/* Pointer to the differential steering actuator */
-		CCI_DifferentialSteeringActuator* m_pcWheels;
-		/* Pointer to the foot-bot light sensor */
-		CCI_FootBotLightSensor* m_pcFootBotLight;
-		/* Pointer to the LEDs actuator */
-		CCI_LEDsActuator* m_pcLEDs;
-		/* Pointer to the omnidirectional camera sensor */
-		CCI_ColoredBlobOmnidirectionalCameraSensor* m_pcCamera;
-		/* Pointer to proximity sensor */
-		CCI_FootBotProximitySensor* m_pcFootBotProximity;
-		/* Pointer to positioning sensor */
-		CCI_PositioningSensor* m_pcPosition;
-		/* Pointer to the range-and-bearing sensor */
-		CCI_RangeAndBearingSensor* m_pcRABS;
-		/* Pointer to the range-and-bearing actuator */
-		CCI_RangeAndBearingActuator* m_pcRABA;
-
-		/* Pointer to differential steering sensor */
-		CCI_DifferentialSteeringSensor* m_pcWheelsSensor;
-		
-		#ifdef HAVE_TURTLEBOT3
-			/* Pointer to turtlebot3 lidar sensor */
-			CCI_Turtlebot3LIDARSensor* m_pcTurtlebot3Lidar;
-			/* Pointer to turtlebot3 proximity sensor */
-			CCI_Turtlebot3ProximitySensor* m_pcTurtlebot3Proximity;
-		#endif
-
-		#ifdef HAVE_TURTLEBOT4
-			/* Pointer to turtlebot4 lidar sensor */
-			CCI_Turtlebot4LIDARSensor* m_pcTurtlebot4Lidar;
-			/* Pointer to turtlebot4 proximity sensor */
-			CCI_Turtlebot4ProximitySensor* m_pcTurtlebot4Proximity;
-			/* Pointer to turtlebot4 base ground sensor */
-			CCI_Turtlebot4BaseGroundSensor* m_pcTurtlebot4BaseGround;
-			/* Pointer to turtlebot4 colored blob omnidirectional camera sensor */
-			CCI_Turtlebot4ColoredBlobOmnidirectionalCameraSensor* m_pcTurtlebot4Camera;
-			/* Pointer to turtlebot4 light sensor */
-			CCI_Turtlebot4LightSensor* m_pcTurtlebot4Light;
-
-		#endif
-
-		// Differential drive geometry defaults (foot-bot dimensions)
-		Real halfBaseline_ = 0.07f; // Half the distance between wheels (meters)
-		Real wheelRadius_ = 0.029112741f; // Wheel radius (meters)
-
-		/*
-		* The following variables are used as parameters for the
-		* algorithm. You can set their value in the <parameters> section
-		* of the XML configuration file, under the
-		* <controllers><argos_ros_bot_controller> section.
-		*/
-
-		// The number of time steps from the time step of the last callback
-		// after which leftSpeed and rightSpeed will be set to zero.  Useful to
-		// shutdown the robot after the controlling code on the ROS side has quit.
-		int stopWithoutSubscriberCount;
-
-		// The number of time steps since the last callback.
-		std::atomic<int> stepsSinceCallback;
-
-		// Most recent left and right wheel speeds, converted from the ROS twist
-		// message.
-		Real leftSpeed, rightSpeed;
-		std::mutex command_mutex_;
-		std::condition_variable command_cv_;
-		bool command_ready_;
-		std::atomic<uint64_t> current_step_index_;
-		uint64_t waiting_command_step_;
-		uint64_t last_command_step_index_;
-		rclcpp::Time last_command_time_;
-		std::atomic<uint64_t> last_wait_duration_us_;
-		std::atomic<uint64_t> last_command_latency_steps_;
-		std::atomic<uint64_t> stale_command_ticks_;
-		rclcpp::Time ros2_time_;
+  rclcpp::TimerBase::SharedPtr timer_;
 
 
-    public:
+  /* Pointer to the differential steering actuator */
+  CCI_DifferentialSteeringActuator * m_pcWheels;
+  /* Pointer to the foot-bot light sensor */
+  CCI_FootBotLightSensor * m_pcFootBotLight;
+  /* Pointer to the LEDs actuator */
+  CCI_LEDsActuator * m_pcLEDs;
+  /* Pointer to the omnidirectional camera sensor */
+  CCI_ColoredBlobOmnidirectionalCameraSensor * m_pcCamera;
+  /* Pointer to proximity sensor */
+  CCI_FootBotProximitySensor * m_pcFootBotProximity;
+  /* Pointer to positioning sensor */
+  CCI_PositioningSensor * m_pcPosition;
+  /* Pointer to the range-and-bearing sensor */
+  CCI_RangeAndBearingSensor * m_pcRABS;
+  /* Pointer to the range-and-bearing actuator */
+  CCI_RangeAndBearingActuator * m_pcRABA;
 
-		ArgosRosBridge();
+  /* Pointer to differential steering sensor */
+  CCI_DifferentialSteeringSensor * m_pcWheelsSensor;
 
-		virtual ~ArgosRosBridge();
+                #ifdef HAVE_TURTLEBOT3
+  /* Pointer to turtlebot3 lidar sensor */
+  CCI_Turtlebot3LIDARSensor * m_pcTurtlebot3Lidar;
+  /* Pointer to turtlebot3 proximity sensor */
+  CCI_Turtlebot3ProximitySensor * m_pcTurtlebot3Proximity;
+                #endif
 
-		/*
-		* This function initializes the controller.
-		* The 't_node' variable points to the <parameters> section in the XML
-		* file in the <controllers><footbot_ccw_wander_controller> section.
-		*/
-		virtual void Init(TConfigurationNode& t_node);
+                #ifdef HAVE_TURTLEBOT4
+  /* Pointer to turtlebot4 lidar sensor */
+  CCI_Turtlebot4LIDARSensor * m_pcTurtlebot4Lidar;
+  /* Pointer to turtlebot4 proximity sensor */
+  CCI_Turtlebot4ProximitySensor * m_pcTurtlebot4Proximity;
+  /* Pointer to turtlebot4 base ground sensor */
+  CCI_Turtlebot4BaseGroundSensor * m_pcTurtlebot4BaseGround;
+  /* Pointer to turtlebot4 colored blob omnidirectional camera sensor */
+  CCI_Turtlebot4ColoredBlobOmnidirectionalCameraSensor * m_pcTurtlebot4Camera;
+  /* Pointer to turtlebot4 light sensor */
+  CCI_Turtlebot4LightSensor * m_pcTurtlebot4Light;
 
-		/*
-		* This function is called once every time step.
-		* The length of the time step is set in the XML file.
-		*/
-		virtual void ControlStep();
-		
-		/*
-		* Called to cleanup what done by Init() when the experiment finishes.
-		*/
-		virtual void Destroy();
-		/*
-		* The callback method for getting new commanded speed on the cmd_vel topic.
-		*/
-		void cmdVelCallback(const geometry_msgs::msg::Twist& twist);
-		/*
-		 * The callback method for getting new commanded packet on the cmd_packet topic.
-		 */
-		void cmdRabCallback(const argos3_ros2_bridge::msg::Packet& packet);
-		/*
-		 * The callback method for getting new commanded led color on the cmd_led topic.
-		 */
-		void cmdLedCallback(const argos3_ros2_bridge::msg::Led& ledColor);
-		/*
-		* The callback method for getting new ros time on the ros2_clock topic.
-		*/
-		void clockCallback(const rosgraph_msgs::msg::Clock::SharedPtr msg);
+                #endif
 
-		static bool ros_initialized;
-		uint64_t GetCurrentStepIndex() const;
-		uint64_t GetLastCommandStepIndex() const;
-		double GetLastWaitDurationMs() const;
-		uint64_t GetLastCommandLatencySteps() const;
-		uint64_t GetStaleCommandTicks() const;
-		bool IsLockstepControlEnabled() const { return lockstep_control_; }
-		double GetCommandTimeoutMs() const { return static_cast<double>(command_timeout_.count()); }
+  // Differential drive geometry defaults (foot-bot dimensions)
+  Real halfBaseline_ = 0.07f;               // Half the distance between wheels (meters)
+  Real wheelRadius_ = 0.029112741f;               // Wheel radius (meters)
+
+  /*
+  * The following variables are used as parameters for the
+  * algorithm. You can set their value in the <parameters> section
+  * of the XML configuration file, under the
+  * <controllers><argos_ros_bot_controller> section.
+  */
+
+  // The number of time steps from the time step of the last callback
+  // after which leftSpeed and rightSpeed will be set to zero.  Useful to
+  // shutdown the robot after the controlling code on the ROS side has quit.
+  int stopWithoutSubscriberCount;
+
+  // The number of time steps since the last callback.
+  std::atomic < int > stepsSinceCallback;
+
+  // Most recent left and right wheel speeds, converted from the ROS twist
+  // message.
+  Real leftSpeed, rightSpeed;
+  std::mutex command_mutex_;
+  std::condition_variable command_cv_;
+  bool command_ready_;
+  std::atomic < uint64_t > current_step_index_;
+  uint64_t waiting_command_step_;
+  uint64_t last_command_step_index_;
+  rclcpp::Time last_command_time_;
+  std::atomic < uint64_t > last_wait_duration_us_;
+  std::atomic < uint64_t > last_command_latency_steps_;
+  std::atomic < uint64_t > stale_command_ticks_;
+  rclcpp::Time ros2_time_;
+
+public:
+  ArgosRosBridge();
+
+  virtual ~ArgosRosBridge();
+
+  /*
+  * This function initializes the controller.
+  * The 't_node' variable points to the <parameters> section in the XML
+  * file in the <controllers><footbot_ccw_wander_controller> section.
+  */
+  virtual void Init(TConfigurationNode & t_node);
+
+  /*
+  * This function is called once every time step.
+  * The length of the time step is set in the XML file.
+  */
+  virtual void ControlStep();
+
+  /*
+  * Called to cleanup what done by Init() when the experiment finishes.
+  */
+  virtual void Destroy();
+  /*
+  * The callback method for getting new commanded speed on the cmd_vel topic.
+  */
+  void cmdVelCallback(const geometry_msgs::msg::Twist & twist);
+  /*
+  * The callback method for getting new commanded packet on the cmd_packet topic.
+  */
+  void cmdRabCallback(const argos3_ros2_bridge::msg::Packet & packet);
+  /*
+  * The callback method for getting new commanded led color on the cmd_led topic.
+  */
+  void cmdLedCallback(const argos3_ros2_bridge::msg::Led & ledColor);
+  /*
+  * The callback method for getting new ros time on the ros2_clock topic.
+  */
+  void clockCallback(const rosgraph_msgs::msg::Clock::SharedPtr msg);
+
+  static bool ros_initialized;
+  uint64_t GetCurrentStepIndex() const;
+  uint64_t GetLastCommandStepIndex() const;
+  double GetLastWaitDurationMs() const;
+  uint64_t GetLastCommandLatencySteps() const;
+  uint64_t GetStaleCommandTicks() const;
+  bool IsLockstepControlEnabled() const {return lockstep_control_;}
+  double GetCommandTimeoutMs() const {return static_cast < double > (command_timeout_.count());}
 };
-#endif /* ARGOS_ROS_BRIDGE_H_ */
+#endif  // PLUGINS__BRIDGE__ARGOS_ROS_BRIDGE_H_
