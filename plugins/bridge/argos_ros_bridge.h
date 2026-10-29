@@ -46,11 +46,11 @@
 /* Definition of the distance scanner sensor */
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_distance_scanner_sensor.h>
 /* Definition of the perspective camera camera sensor */
-#include \
-  <argos3/plugins/robots/generic/control_interface/ci_colored_blob_perspective_camera_sensor.h>
+// *INDENT-OFF* (long include paths; keep each on one line for all uncrustify versions)
+#include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_perspective_camera_sensor.h>
 /* Definition of the omnidirectional camera sensor */
-#include \
-  <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_colored_blob_omnidirectional_camera_sensor.h>
+// *INDENT-ON*
 
 #ifdef HAVE_TURTLEBOT3
 /* Definition of the turtlebot3 lidar sensor*/
@@ -67,8 +67,9 @@
 /* Definition of the turtlebot4 base ground sensor*/
 #include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_base_ground_sensor.h>
 /* Definition of the turtlebot4 colored blob omnidirectional camera sensor*/
-#include \
-  <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_colored_blob_omnidirectional_camera_sensor.h>  // NOLINT(whitespace/line_length)
+// *INDENT-OFF* (long include path; keep it on one line for all uncrustify versions)
+#include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_colored_blob_omnidirectional_camera_sensor.h>
+// *INDENT-ON*
 /* Definition of the turtlebot4 light sensor */
 #include <argos3/plugins/robots/turtlebot4/control_interface/ci_turtlebot4_light_sensor.h>
 #endif
